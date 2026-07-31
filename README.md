@@ -18,7 +18,6 @@ A Home Assistant custom integration for Greenline LWSE-V heat-pump controllers u
 
 - Only HK1 and WW1 are supported.
 - The controller does not expose a serial number through this protocol. Setup resolves its MAC address, so Home Assistant and the controller must share a network segment where MAC discovery is possible.
-- The integration has no cloud or remote-access support.
 - The embedded protocol client is controller-specific because no maintained public MControl2 client library is available.
 
 ## Installation
@@ -33,10 +32,6 @@ A Home Assistant custom integration for Greenline LWSE-V heat-pump controllers u
 
 Copy `custom_components/greenline_lwse_v` into the Home Assistant configuration directory, resulting in `config/custom_components/greenline_lwse_v/`, then restart Home Assistant.
 
-## Migration from the previous domain
-
-This release changes the Home Assistant integration domain from `knv_greenline` to `greenline_lwse_v`. Home Assistant treats that as a new integration; existing entries are not migrated automatically. Before updating, note the current host and credentials. After updating, remove the old integration if it remains listed and add **Greenline LWSE-V** again from **Settings → Devices & services**. Entity IDs may change, so update dashboards, automations, scripts, and voice-assistant references as needed.
-
 ## Configuration
 
 In Home Assistant, go to **Settings → Devices & services → Add integration**, select **Greenline LWSE-V**, and enter the controller host/IP address plus the credentials used for its web interface.
@@ -49,10 +44,6 @@ In Home Assistant, go to **Settings → Devices & services → Add integration**
 | Reduced room temperature | `number` | HK1 reduced (economy/setback) target |
 | Warm water temperature | `sensor` | WW1 current temperature |
 | Warm water target temperature | `sensor` | WW1 target temperature |
-
-## Development
-
-The test suite uses `pytest-homeassistant-custom-component` and requires Python **3.14.2 or later**. The pinned test environment currently uses the Home Assistant `2026.8.0b0` dependency required by that package version.
 
 ### UV workflow (recommended)
 
@@ -73,12 +64,10 @@ For focused work, pass normal pytest selectors through the helper script:
 ./run-tests.sh tests/test_config_flow.py -k reauth
 ```
 
-### pip workflow with the host Python 3.14 interpreter
-
-Do not replace Ubuntu's system `python3`. When a host-managed environment is needed, call `python3.14` explicitly:
+### pip workflow with the host Python interpreter
 
 ```bash
-python3.14 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements_dev.txt
