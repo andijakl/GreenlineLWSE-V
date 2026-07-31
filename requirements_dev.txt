@@ -121,7 +121,7 @@ coverage==7.15.2
     #   pytest-homeassistant-custom-component
 cronsim==2.7
     # via homeassistant
-cryptography==48.0.1
+cryptography==49.0.0
     # via
     #   acme
     #   bluetooth-data-tools
