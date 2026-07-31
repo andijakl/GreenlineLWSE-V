@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "username": "[%key:common::config_flow::data::username%]",
+          "password": "[%key:common::config_flow::data::password%]"
+        },
+        "data_description": {
+          "host": "The IP address or hostname of the Greenline LWSE-V device, for example 192.168.20.1.",
+          "username": "The username used to log in to the device's web interface.",
+          "password": "The password used to log in to the device's web interface."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "mac_unavailable": "Could not determine a unique identifier (MAC address) for the device. Make sure Home Assistant and the device are on the same network.",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+    }
+  },
+  "entity": {
+    "number": {
+      "reduced_temperature": {
+        "name": "Reduced room temperature"
+      }
+    },
+    "sensor": {
+      "warm_water_temperature": {
+        "name": "Warm water temperature"
+      },
+      "warm_water_target_temperature": {
+        "name": "Warm water target temperature"
+      }
+    }
+  },
+  "exceptions": {
+    "set_value_failed": {
+      "message": "Could not send the new value to the Greenline LWSE-V device."
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Device is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "mac_unavailable": "Could not determine a unique identifier (MAC address) for the device. Make sure Home Assistant and the device are on the same network.",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "host": "Host",
+          "password": "Password",
+          "username": "Username"
+        },
+        "data_description": {
+          "host": "The IP address or hostname of the Greenline LWSE-V device, for example 192.168.20.1.",
+          "password": "The password used to log in to the device's web interface.",
+          "username": "The username used to log in to the device's web interface."
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "reduced_temperature": {
+        "name": "Reduced room temperature"
+      }
+    },
+    "sensor": {
+      "warm_water_target_temperature": {
+        "name": "Warm water target temperature"
+      },
+      "warm_water_temperature": {
+        "name": "Warm water temperature"
+      }
+    }
+  },
+  "exceptions": {
+    "set_value_failed": {
+      "message": "Could not send the new value to the Greenline LWSE-V device."
+    }
+  }
+}

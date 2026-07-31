@@ -1,0 +1,62 @@
+# Pre-commit hooks for the Greenline LWSE-V Home Assistant integration.
+# See https://pre-commit.com for configuration details.
+
+default_language_version:
+  python: python3.14
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^tests/fixtures/
+      - id: end-of-file-fixer
+        exclude: ^tests/fixtures/
+      - id: check-yaml
+        exclude: ^tests/fixtures/
+      - id: check-json
+        exclude: ^tests/fixtures/
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # Ruff provides linting, import sorting, and formatting.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # Check the integration against the same Home Assistant API it imports.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        args: ["--config-file=mypy.ini", "custom_components/greenline_lwse_v"]
+        pass_filenames: false
+        files: ^custom_components/greenline_lwse_v/.*\.py$
+        additional_dependencies:
+          - homeassistant==2026.8.0b0
+          - getmac==0.9.5
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.7.4
+    hooks:
+      - id: prettier
+        types_or: [json, yaml, markdown]
+        exclude: ^(custom_components/greenline_lwse_v/(strings\.json|translations/.*\.json)|tests/fixtures/)
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autoupdate_schedule: monthly
+  submodules: false
