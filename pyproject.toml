@@ -10,6 +10,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+quality = [
+    "pre-commit==4.6.1",
+]
 test = [
   "pytest-homeassistant-custom-component==0.13.349",
 ]

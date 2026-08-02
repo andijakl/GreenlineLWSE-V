@@ -13,7 +13,7 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 run_pytest() {
-    uv run --group test pytest "$@"
+    uv run --locked --group test pytest "$@"
 }
 
 case "${1:-all}" in

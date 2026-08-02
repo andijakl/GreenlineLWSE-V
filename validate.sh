@@ -19,8 +19,8 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 printf 'Running pre-commit checks...\n'
-# Run pre-commit in the project environment so its Python hooks use the required Python version.
-uv run --group test --with 'pre-commit==3.6.2' pre-commit run --all-files
+# Run pre-commit in the locked project environment.
+uv run --locked --group quality pre-commit run --all-files
 
 printf '\nRunning the Home Assistant test suite with coverage...\n'
 "$REPO_ROOT/run-tests.sh" coverage

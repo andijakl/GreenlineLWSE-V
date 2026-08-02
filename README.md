@@ -38,19 +38,19 @@ In Home Assistant, go to **Settings → Devices & services → Add integration**
 
 ## Entities
 
-| Entity | Platform | Description |
-| --- | --- | --- |
-| Heating circuit 1 | `climate` | Current/target room temperature and HVAC mode |
-| Reduced room temperature | `number` | HK1 reduced (economy/setback) target |
-| Warm water temperature | `sensor` | WW1 current temperature |
-| Warm water target temperature | `sensor` | WW1 target temperature |
+| Entity                        | Platform  | Description                                   |
+| ----------------------------- | --------- | --------------------------------------------- |
+| Heating circuit 1             | `climate` | Current/target room temperature and HVAC mode |
+| Reduced room temperature      | `number`  | HK1 reduced (economy/setback) target          |
+| Warm water temperature        | `sensor`  | WW1 current temperature                       |
+| Warm water target temperature | `sensor`  | WW1 target temperature                        |
 
-### UV workflow (recommended)
+## Development
 
-[uv](https://docs.astral.sh/uv/) manages the required Python version and locked dependencies without changing Ubuntu's system Python installation.
+[uv](https://docs.astral.sh/uv/) is the sole development dependency manager for this project. It uses the committed `uv.lock` file, installs the required Python version without modifying Ubuntu's system Python, and avoids a second pip resolver.
 
 ```bash
-uv sync --group test
+uv sync --locked --group test --group quality
 ./run-tests.sh all
 ./run-tests.sh coverage
 ./validate.sh
@@ -64,26 +64,12 @@ For focused work, pass normal pytest selectors through the helper script:
 ./run-tests.sh tests/test_config_flow.py -k reauth
 ```
 
-### pip workflow with the host Python interpreter
+The direct project dependencies are deliberately small: the integration requires only `getmac`, and the test group requires `pytest-homeassistant-custom-component`. Home Assistant's full transitive test environment is resolved and pinned in `uv.lock`; it is not maintained as a separate `requirements_dev.txt` file.
+
+To run strict type checks:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements_dev.txt
-pytest tests -v
-```
-
-`requirements_dev.txt` is a pip-compatible, fully pinned export of `uv.lock`. Regenerate it after dependency changes with:
-
-```bash
-uv export --locked --group test --no-emit-project --format requirements-txt --no-hashes
-```
-
-To run strict type checks through UV:
-
-```bash
-uv run --group test --with mypy==1.19.1 mypy --config-file=mypy.ini custom_components/greenline_lwse_v
+uv run --locked --group test --with mypy==1.19.1 mypy --config-file=mypy.ini custom_components/greenline_lwse_v
 ```
 
 ## License and attribution
