@@ -42,7 +42,6 @@ repos:
         files: ^custom_components/greenline_lwse_v/.*\.py$
         additional_dependencies:
           - homeassistant==2026.8.0b0
-          - getmac==0.9.5
 
   - repo: https://github.com/rbubley/mirrors-prettier
     rev: v3.7.4

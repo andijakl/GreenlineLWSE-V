@@ -7,7 +7,7 @@
     "error": {
       "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid authentication",
-      "mac_unavailable": "Could not determine a unique identifier (MAC address) for the device. Make sure Home Assistant and the device are on the same network.",
+      "wrong_device": "The credentials belong to a different Greenline LWSE-V controller.",
       "unknown": "Unexpected error"
     },
     "step": {

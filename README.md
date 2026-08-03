@@ -12,12 +12,12 @@ A Home Assistant custom integration for Greenline LWSE-V heat-pump controllers u
 - A `number` entity for the HK1 reduced (economy/setback) target temperature.
 - Sensors for WW1 current and target temperatures.
 - UI configuration, connection validation, and reauthentication after credential changes.
-- Stable device and entity identifiers based on the controller MAC address.
+- Stable device and entity identifiers based on the controller serial.
+- Support for routed networks; Home Assistant and the controller do not need to share a network segment.
 
 ## Limitations
 
 - Only HK1 and WW1 are supported.
-- The controller does not expose a serial number through this protocol. Setup resolves its MAC address, so Home Assistant and the controller must share a network segment where MAC discovery is possible.
 - The embedded protocol client is controller-specific because no maintained public MControl2 client library is available.
 
 ## Installation
@@ -34,7 +34,7 @@ Copy `custom_components/greenline_lwse_v` into the Home Assistant configuration 
 
 ## Configuration
 
-In Home Assistant, go to **Settings → Devices & services → Add integration**, select **Greenline LWSE-V**, and enter the controller host/IP address plus the credentials used for its web interface.
+In Home Assistant, go to **Settings → Devices & services → Add integration**, select **Greenline LWSE-V**, and enter the controller host/IP address plus the credentials used for its web interface. Home Assistant must be able to reach the controller over HTTP and WebSocket port 3118.
 
 ## Entities
 
@@ -64,7 +64,7 @@ For focused work, pass normal pytest selectors through the helper script:
 ./run-tests.sh tests/test_config_flow.py -k reauth
 ```
 
-The direct project dependencies are deliberately small: the integration requires only `getmac`, and the test group requires `pytest-homeassistant-custom-component`. Home Assistant's full transitive test environment is resolved and pinned in `uv.lock`; it is not maintained as a separate `requirements_dev.txt` file.
+The integration has no external runtime dependencies. The test group requires `pytest-homeassistant-custom-component`. Home Assistant's full transitive test environment is resolved and pinned in `uv.lock`; it is not maintained as a separate `requirements_dev.txt` file.
 
 To run strict type checks:
 

@@ -15,7 +15,7 @@ from .api import (
     GreenlineLWSEClient,
     GreenlineLWSEConnectionError,
 )
-from .const import DOMAIN, SUBSCRIBED_DAPS
+from .const import DOMAIN, SUBSCRIBED_DAPS, is_legacy_mac_device_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class GreenlineLWSECoordinator(DataUpdateCoordinator[dict[str, str]]):
         if (device_id := config_entry.unique_id) is None:
             raise ValueError("Greenline LWSE-V config entry has no device identifier")
         self.device_id = device_id
+        self.controller_serial: str | None = None
         self.data = {}
         self.client = GreenlineLWSEClient(
             session=async_get_clientsession(hass),
@@ -65,12 +66,24 @@ class GreenlineLWSECoordinator(DataUpdateCoordinator[dict[str, str]]):
     async def _async_update_data(self) -> dict[str, str]:
         """Connect to the device and subscribe to required data points."""
         try:
-            await self.client.async_connect()
-            for dap in SUBSCRIBED_DAPS:
-                await self.client.async_subscribe(dap)
+            serial = await self.client.async_connect()
         except GreenlineLWSEAuthError as err:
             raise ConfigEntryAuthFailed from err
         except GreenlineLWSEConnectionError as err:
+            raise UpdateFailed(str(err)) from err
+
+        if serial != self.device_id and not is_legacy_mac_device_id(self.device_id):
+            await self.client.async_disconnect()
+            raise UpdateFailed(
+                "Connected controller does not match the configured device"
+            )
+
+        self.controller_serial = serial
+        try:
+            for dap in SUBSCRIBED_DAPS:
+                await self.client.async_subscribe(dap)
+        except GreenlineLWSEConnectionError as err:
+            await self.client.async_disconnect()
             raise UpdateFailed(str(err)) from err
 
         self.config_entry.async_create_background_task(

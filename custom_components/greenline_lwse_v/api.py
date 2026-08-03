@@ -50,11 +50,12 @@ class GreenlineLWSEClient:
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._subscriptions: set[str] = set()
         self._pending_login: asyncio.Future[str | None] | None = None
+        self._serial: str | None = None
         self._stopping = False
 
-    async def async_connect(self) -> None:
-        """Open the connection and log in."""
-        await self._async_connect_and_login()
+    async def async_connect(self) -> str:
+        """Open the connection, log in, and return the controller serial."""
+        return await self._async_connect_and_login()
 
     async def async_disconnect(self) -> None:
         """Close the connection."""
@@ -94,7 +95,7 @@ class GreenlineLWSEClient:
                 self._on_connection_lost(err)
                 await asyncio.sleep(RECONNECT_DELAY)
 
-    async def _async_connect_and_login(self) -> None:
+    async def _async_connect_and_login(self) -> str:
         """Open the WebSocket connection and wait for the login response."""
         url = f"ws://{self._host}:{PORT}"
         try:
@@ -105,6 +106,12 @@ class GreenlineLWSEClient:
         pending_login = asyncio.get_running_loop().create_future()
         self._pending_login = pending_login
         try:
+            serial = await self._async_get_serial()
+            if self._serial is not None and serial != self._serial:
+                raise GreenlineLWSEConnectionError(
+                    "Connected controller serial changed during reconnect"
+                )
+            await self._async_send_frame(f"serial?{serial}")
             await self._async_send(
                 {
                     "command": "login",
@@ -129,8 +136,27 @@ class GreenlineLWSEClient:
         except GreenlineLWSEError:
             await self._async_close_websocket()
             raise
+        else:
+            self._serial = serial
+            return serial
         finally:
             self._pending_login = None
+
+    async def _async_get_serial(self) -> str:
+        """Fetch the controller serial required by the WebSocket handshake."""
+        url = f"http://{self._host}/serial.html"
+        timeout = aiohttp.ClientTimeout(total=LOGIN_TIMEOUT)
+        try:
+            async with self._session.get(url, timeout=timeout) as response:
+                response.raise_for_status()
+                serial = (await response.text()).strip()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise GreenlineLWSEConnectionError(
+                f"Could not retrieve controller serial: {err}"
+            ) from err
+        if not serial:
+            raise GreenlineLWSEConnectionError("Controller returned an empty serial")
+        return serial
 
     async def _async_receive_forever(self) -> None:
         """Read and process messages until the connection is closed."""
@@ -165,7 +191,7 @@ class GreenlineLWSEClient:
 
     def _handle_payload(self, raw: str) -> None:
         """Parse and dispatch a single text payload from the device."""
-        if not raw.startswith("#"):
+        if not raw.startswith(("#", "@")):
             _LOGGER.debug("Ignoring message with an invalid frame prefix: %s", raw)
             return
         try:
@@ -198,10 +224,14 @@ class GreenlineLWSEClient:
 
     async def _async_send(self, payload: dict[str, Any]) -> None:
         """Send a JSON payload to the device."""
+        await self._async_send_frame(json.dumps(payload))
+
+    async def _async_send_frame(self, payload: str) -> None:
+        """Send a framed protocol payload to the device."""
         if self._ws is None:
             raise GreenlineLWSEConnectionError("Not connected")
         try:
-            await self._ws.send_str(f"#{json.dumps(payload)}\n")
+            await self._ws.send_str(f"#{payload}\n")
         except (aiohttp.ClientError, ConnectionError) as err:
             raise GreenlineLWSEConnectionError(str(err)) from err
 

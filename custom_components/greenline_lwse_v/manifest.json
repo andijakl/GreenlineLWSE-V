@@ -6,6 +6,6 @@
   "documentation": "https://github.com/andijakl/GreenlineLWSE-V",
   "integration_type": "device",
   "iot_class": "local_push",
-  "requirements": ["getmac==0.9.5"],
-  "version": "0.1.0"
+  "requirements": [],
+  "version": "0.2.0"
 }

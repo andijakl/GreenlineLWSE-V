@@ -24,7 +24,7 @@ from homeassistant.core import HomeAssistant
 TEST_HOST = "192.168.20.1"
 TEST_USERNAME = "homeassistant"
 TEST_PASSWORD = "test-password"
-TEST_MAC = "aa:bb:cc:dd:ee:ff"
+TEST_DEVICE_ID = "120617430000044"
 
 TEST_DATA = {
     DAP_HK_HEATING_ENABLED: "1",
@@ -54,21 +54,11 @@ def mock_setup_entry() -> Generator[AsyncMock]:
 
 
 @pytest.fixture
-def mock_get_mac_address() -> Generator[MagicMock]:
-    """Mock the MAC address lookup used by the config flow."""
-    with patch(
-        "custom_components.greenline_lwse_v.config_flow.get_mac_address",
-        return_value=TEST_MAC,
-    ) as mock_get_mac:
-        yield mock_get_mac
-
-
-@pytest.fixture
 def mock_config_entry() -> MockConfigEntry:
     """Return a Greenline mock config entry."""
     return MockConfigEntry(
         domain=DOMAIN,
-        unique_id=TEST_MAC,
+        unique_id=TEST_DEVICE_ID,
         data={
             CONF_HOST: TEST_HOST,
             CONF_USERNAME: TEST_USERNAME,
@@ -85,7 +75,7 @@ def mock_client() -> Generator[MagicMock]:
         autospec=True,
     ) as mock_client_cls:
         client = mock_client_cls.return_value
-        client.async_connect = AsyncMock()
+        client.async_connect = AsyncMock(return_value=TEST_DEVICE_ID)
         client.async_disconnect = AsyncMock()
         client.async_subscribe = AsyncMock()
         client.async_set_value = AsyncMock()

@@ -17,7 +17,7 @@
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-      "mac_unavailable": "Could not determine a unique identifier (MAC address) for the device. Make sure Home Assistant and the device are on the same network.",
+      "wrong_device": "The credentials belong to a different Greenline LWSE-V controller.",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },
     "abort": {

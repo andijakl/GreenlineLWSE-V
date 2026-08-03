@@ -23,7 +23,7 @@ from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .conftest import TEST_MAC
+from .conftest import TEST_DEVICE_ID
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
@@ -41,8 +41,8 @@ async def test_state_and_stable_identifiers(hass: HomeAssistant) -> None:
     assert state.attributes["current_temperature"] == 20.5
 
     entity_entry = er.async_get(hass).async_get(ENTITY_ID)
-    assert entity_entry.unique_id == f"{TEST_MAC}_hk1"
-    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, TEST_MAC)})
+    assert entity_entry.unique_id == f"{TEST_DEVICE_ID}_hk1"
+    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, TEST_DEVICE_ID)})
 
 
 @pytest.mark.usefixtures("mock_added_config_entry")

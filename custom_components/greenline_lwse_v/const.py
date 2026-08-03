@@ -35,3 +35,13 @@ SUBSCRIBED_DAPS = (
 
 TEMPERATURE_MIN = 0
 TEMPERATURE_MAX = 40
+
+
+def is_legacy_mac_device_id(device_id: str) -> bool:
+    """Return whether an entry uses the legacy colon-separated MAC identifier."""
+    parts = device_id.split(":")
+    return len(parts) == 6 and all(
+        len(part) == 2
+        and all(character in "0123456789abcdef" for character in part.lower())
+        for part in parts
+    )

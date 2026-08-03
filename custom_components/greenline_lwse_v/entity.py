@@ -36,6 +36,7 @@ class GreenlineLWSEEntity(CoordinatorEntity[GreenlineLWSECoordinator]):
             manufacturer=MANUFACTURER,
             model=MODEL,
             name="Greenline LWSE-V",
+            serial_number=coordinator.device_id,
         )
 
     async def _async_set_value(self, dap: str, value: float | str) -> None:

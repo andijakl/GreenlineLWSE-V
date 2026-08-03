@@ -5,13 +5,11 @@ description = "Greenline LWSE-V custom integration for Home Assistant"
 readme = "README.md"
 requires-python = ">=3.14.2"
 license = "Apache-2.0"
-dependencies = [
-  "getmac==0.9.5",
-]
+dependencies = []
 
 [dependency-groups]
 quality = [
-    "pre-commit==4.6.1",
+  "pre-commit==4.6.1",
 ]
 test = [
   "pytest-homeassistant-custom-component==0.13.349",

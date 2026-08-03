@@ -16,7 +16,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from .conftest import TEST_HOST, TEST_MAC, TEST_PASSWORD, TEST_USERNAME
+from .conftest import TEST_DEVICE_ID, TEST_HOST, TEST_PASSWORD, TEST_USERNAME
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
@@ -35,7 +35,7 @@ def mock_validate_input() -> Generator[MagicMock]:
         autospec=True,
     ) as mock_client_cls:
         client = mock_client_cls.return_value
-        client.async_connect = AsyncMock()
+        client.async_connect = AsyncMock(return_value=TEST_DEVICE_ID)
         client.async_disconnect = AsyncMock()
         yield client
 
@@ -44,9 +44,8 @@ async def test_form(
     hass: HomeAssistant,
     mock_setup_entry: AsyncMock,
     mock_validate_input: MagicMock,
-    mock_get_mac_address: MagicMock,
 ) -> None:
-    """Test the form creates a MAC-identified config entry."""
+    """Test the form creates a serial-identified config entry."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -61,7 +60,7 @@ async def test_form(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Greenline LWSE-V"
     assert result["data"] == USER_INPUT
-    assert result["result"].unique_id == TEST_MAC
+    assert result["result"].unique_id == TEST_DEVICE_ID
     assert len(mock_setup_entry.mock_calls) == 1
 
 
@@ -79,7 +78,6 @@ async def test_form_errors(
     hass: HomeAssistant,
     mock_setup_entry: AsyncMock,
     mock_validate_input: MagicMock,
-    mock_get_mac_address: MagicMock,
     side_effect: Exception,
     error: str,
 ) -> None:
@@ -105,36 +103,13 @@ async def test_form_errors(
     assert len(mock_setup_entry.mock_calls) == 1
 
 
-async def test_form_mac_unavailable(
-    hass: HomeAssistant,
-    mock_setup_entry: AsyncMock,
-    mock_validate_input: MagicMock,
-) -> None:
-    """Test the flow reports unavailable MAC discovery."""
-    with patch(
-        "custom_components.greenline_lwse_v.config_flow.get_mac_address",
-        return_value=None,
-    ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": config_entries.SOURCE_USER}
-        )
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], USER_INPUT
-        )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "mac_unavailable"}
-    assert len(mock_setup_entry.mock_calls) == 0
-
-
 async def test_form_already_configured(
     hass: HomeAssistant,
     mock_setup_entry: AsyncMock,
     mock_validate_input: MagicMock,
-    mock_get_mac_address: MagicMock,
     mock_config_entry: MockConfigEntry,
 ) -> None:
-    """Test the flow aborts for an existing MAC identifier."""
+    """Test the flow aborts for an existing controller serial."""
     mock_config_entry.add_to_hass(hass)
 
     result = await hass.config_entries.flow.async_init(
@@ -170,6 +145,15 @@ async def test_reauth_flow(
     assert result["errors"] == {"base": "invalid_auth"}
 
     mock_validate_input.async_connect.side_effect = None
+    mock_validate_input.async_connect.return_value = "different-controller"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {**USER_INPUT, CONF_PASSWORD: "new-password"},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "wrong_device"}
+
+    mock_validate_input.async_connect.return_value = TEST_DEVICE_ID
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {**USER_INPUT, CONF_PASSWORD: "new-password"},

@@ -1,6 +1,6 @@
 """Test the Greenline MControl2 WebSocket client."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
@@ -16,14 +16,14 @@ pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
 
 async def test_login_failure_closes_websocket() -> None:
-    """Test a login rejection closes the WebSocket."""
+    """Test the serial handshake and a login rejection close the WebSocket."""
     websocket = MagicMock(closed=False)
     websocket.send_str = AsyncMock()
     websocket.close = AsyncMock()
     websocket.receive = AsyncMock(
         return_value=aiohttp.WSMessage(
             aiohttp.WSMsgType.TEXT,
-            '#{"command":"login","error":"invalid_auth"}',
+            '@{"command":"login","error":"invalid_auth"}',
             "",
         )
     )
@@ -37,10 +37,17 @@ async def test_login_failure_closes_websocket() -> None:
         on_data=MagicMock(),
         on_connection_lost=MagicMock(),
     )
+    client._async_get_serial = AsyncMock(return_value="120617430000044")
 
     with pytest.raises(GreenlineLWSEAuthError, match="invalid_auth"):
         await client.async_connect()
 
+    assert websocket.send_str.await_args_list == [
+        call("#serial?120617430000044\n"),
+        call(
+            '#{"command": "login", "parameter": {"username": "username", "password": "password"}}\n'
+        ),
+    ]
     websocket.close.assert_awaited_once()
 
 
@@ -60,6 +67,7 @@ async def test_login_timeout_closes_websocket() -> None:
         on_data=MagicMock(),
         on_connection_lost=MagicMock(),
     )
+    client._async_get_serial = AsyncMock(return_value="120617430000044")
 
     with pytest.raises(GreenlineLWSEConnectionError, match="Timed out"):
         await client.async_connect()
@@ -89,7 +97,7 @@ async def test_send_payload_uses_controller_framing() -> None:
 
 
 def test_handle_payload_dispatches_valid_hotlink_data() -> None:
-    """Test valid framed hotlink data is forwarded to the coordinator."""
+    """Test valid controller-prefixed hotlink data is forwarded."""
     on_data = MagicMock()
     client = GreenlineLWSEClient(
         session=MagicMock(),
@@ -101,7 +109,7 @@ def test_handle_payload_dispatches_valid_hotlink_data() -> None:
     )
 
     client._handle_payload(
-        '#{"command":"HLVal","values":[{"path":"1.100.1.5","result":"21.5"},{"path":3,"result":"ignored"}]}'
+        '@{"command":"HLVal","values":[{"path":"1.100.1.5","result":"21.5"},{"path":3,"result":"ignored"}]}'
     )
 
     on_data.assert_called_once_with({"1.100.1.5": "21.5"})
