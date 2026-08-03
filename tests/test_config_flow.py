@@ -53,7 +53,7 @@ async def test_form(
     assert result["errors"] == {}
 
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], USER_INPUT
+        result["flow_id"], {**USER_INPUT, CONF_HOST: f"http://{TEST_HOST}/"}
     )
     await hass.async_block_till_done()
 

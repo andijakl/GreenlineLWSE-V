@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 import logging
 from typing import Any, override
+from urllib.parse import urlsplit
 
 import voluptuous as vol
 
@@ -102,12 +103,34 @@ class GreenlineLWSEConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         device_id: str | None = None
         try:
+            user_input[CONF_HOST] = _normalize_host(user_input[CONF_HOST])
+        except ValueError:
+            errors["base"] = "cannot_connect"
+            return errors, device_id
+
+        try:
             device_id = await validate_input(self.hass, user_input)
         except GreenlineLWSEAuthError:
             errors["base"] = "invalid_auth"
-        except GreenlineLWSEConnectionError:
+        except GreenlineLWSEConnectionError as err:
+            _LOGGER.warning(
+                "Could not connect to Greenline LWSE-V at %s: %s",
+                user_input[CONF_HOST],
+                err,
+            )
             errors["base"] = "cannot_connect"
         except Exception:
             _LOGGER.exception("Unexpected exception")
             errors["base"] = "unknown"
         return errors, device_id
+
+
+def _normalize_host(value: str) -> str:
+    """Extract a bare host from an IP, hostname, or controller URL."""
+    value = value.strip()
+    parsed = urlsplit(value if "://" in value else f"//{value}")
+    if parsed.scheme and parsed.scheme not in ("http", "https"):
+        raise ValueError("Unsupported controller URL scheme")
+    if parsed.hostname is None:
+        raise ValueError("Controller host is missing")
+    return parsed.hostname
