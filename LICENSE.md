@@ -199,3 +199,15 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+THIRD-PARTY TRADEMARKS AND ATTRIBUTION
+
+NIBE and KNV company names, product names, logos, and trademarks are the
+property of their respective owners. The NIBE icons distributed in
+`custom_components/greenline_lwse_v/brand/` are sourced from the Home
+Assistant brands repository and are used only to identify compatible products:
+https://github.com/home-assistant/brands/tree/master/core_integrations/nibe_heatpump
+
+Neither the Apache License nor inclusion of these identification assets grants
+trademark rights or implies affiliation with or endorsement by NIBE, KNV, or
+Home Assistant.

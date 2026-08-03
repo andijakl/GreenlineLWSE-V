@@ -1,6 +1,6 @@
 {
   "domain": "greenline_lwse_v",
-  "name": "Greenline LWSE-V",
+  "name": "NIBE Greenline LWSE-V",
   "codeowners": ["@andijakl"],
   "config_flow": true,
   "documentation": "https://github.com/andijakl/GreenlineLWSE-V",

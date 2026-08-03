@@ -1,40 +1,41 @@
-# Greenline LWSE-V for Home Assistant
+# NIBE Greenline LWSE-V for Home Assistant
 
-A Home Assistant custom integration for Greenline LWSE-V heat-pump controllers using the MEC Electronics MControl2 web interface. It provides local control of heating circuit 1 (HK1) and monitoring for warm-water circuit 1 (WW1).
+A Home Assistant custom integration for NIBE Greenline LWSE-V heat-pump controllers (formerly KNV). It provides local control and monitoring through the controller's MControl2 WebSocket interface.
 
 > [!WARNING]
-> This community integration uses an undocumented WebSocket protocol reverse-engineered from the controller web interface. A controller firmware update can change or remove that interface. It has been tested with controller/web-app version 1.3.
+> This community integration uses an undocumented protocol reverse-engineered from the controller web interface. Controller firmware updates may change or remove that interface. The integration has been tested with controller/web-app version 1.3.
 
 ## Features
 
 - Local push updates through a persistent WebSocket connection; no polling.
+- Automatic recovery after transport failures, with subscriptions restored after reconnecting.
 - A `climate` entity for HK1 current/target temperature and `off`, `heat`, `cool`, and `heat_cool` modes.
 - A `number` entity for the HK1 reduced (economy/setback) target temperature.
 - Sensors for WW1 current and target temperatures.
 - UI configuration, connection validation, and reauthentication after credential changes.
-- Stable device and entity identifiers based on the controller serial.
-- Support for routed networks; Home Assistant and the controller do not need to share a network segment.
+- Stable device and entity identifiers based on the controller serial number.
 
 ## Limitations
 
-- Only HK1 and WW1 are supported.
-- The embedded protocol client is controller-specific because no maintained public MControl2 client library is available.
+- Only heating circuit 1 (HK1) and warm-water circuit 1 (WW1) are currently implemented. Additional circuits should be straightforward to add, but they are not used in the developer's home and therefore could not be tested.
+- The protocol client is controller-specific because no maintained public MControl2 client library is available.
+- Transport failures are retried after a fixed 30-second delay. Authentication failures require reauthentication and are not retried automatically.
 
 ## Installation
 
 ### HACS
 
 1. In HACS, add this repository as a custom repository of category **Integration**.
-2. Install **Greenline LWSE-V**.
+2. Install **NIBE Greenline LWSE-V**.
 3. Restart Home Assistant.
 
 ### Manual
 
-Copy `custom_components/greenline_lwse_v` into the Home Assistant configuration directory, resulting in `config/custom_components/greenline_lwse_v/`, then restart Home Assistant.
+Copy `custom_components/greenline_lwse_v` into the Home Assistant configuration directory so that it is available at `config/custom_components/greenline_lwse_v/`, then restart Home Assistant.
 
 ## Configuration
 
-In Home Assistant, go to **Settings → Devices & services → Add integration**, select **Greenline LWSE-V**, and enter the controller host/IP address plus the credentials used for its web interface. Home Assistant must be able to reach the controller over HTTP and WebSocket port 3118.
+In Home Assistant, go to **Settings → Devices & services → Add integration**, select **NIBE Greenline LWSE-V**, and enter the controller host or IP address plus the credentials used for its web interface. Home Assistant must be able to reach the controller over HTTP and WebSocket port 3118.
 
 ## Entities
 
@@ -47,33 +48,41 @@ In Home Assistant, go to **Settings → Devices & services → Add integration**
 
 ## Development
 
-[uv](https://docs.astral.sh/uv/) is the sole development dependency manager for this project. It uses the committed `uv.lock` file, installs the required Python version without modifying Ubuntu's system Python, and avoids a second pip resolver.
+[uv](https://docs.astral.sh/uv/) is the sole dependency manager. The committed `uv.lock` provides a reproducible Python and tool environment.
 
 ```bash
-uv sync --locked --group test --group quality
-./run-tests.sh all
-./run-tests.sh coverage
+uv sync --locked --all-groups
 ./validate.sh
 ```
 
-`./validate.sh` runs pre-commit followed by the coverage suite and must be run from a Git checkout. Use `./create-release.sh 0.1.0` to validate and create a HACS-compatible archive, or pass `--skip-validation` only when checks have already run.
-
-For focused work, pass normal pytest selectors through the helper script:
+`./validate.sh` verifies the lockfile, checks version consistency, runs all pre-commit hooks (including strict mypy checks), and runs the complete test suite with coverage. For a focused test, invoke pytest through the locked test group:
 
 ```bash
-./run-tests.sh tests/test_config_flow.py -k reauth
+uv run --locked --group test pytest tests/test_config_flow.py -k reauth
 ```
 
-The integration has no external runtime dependencies. The test group requires `pytest-homeassistant-custom-component`. Home Assistant's full transitive test environment is resolved and pinned in `uv.lock`; it is not maintained as a separate `requirements_dev.txt` file.
-
-To run strict type checks:
+To run strict type checks directly, use the uv-managed mypy version from `pyproject.toml` and `uv.lock`:
 
 ```bash
-uv run --locked --group test --with mypy==1.19.1 mypy --config-file=mypy.ini custom_components/greenline_lwse_v
+uv run --locked --group quality --group test mypy --config-file=mypy.ini custom_components/greenline_lwse_v
 ```
+
+Dependency versions are pinned for reproducibility. Dependabot updates uv and GitHub Actions dependencies, while pre-commit.ci updates hook revisions. To refresh all direct development dependencies and pre-commit hooks manually before validating, run:
+
+```bash
+./validate.sh --update
+```
+
+To build a validated HACS-compatible archive for the version declared in the manifest:
+
+```bash
+./create-release.sh
+```
+
+Use `--skip-validation` only if the same checkout has already passed `./validate.sh`.
 
 ## License and attribution
 
 This integration is distributed under the [Apache License 2.0](LICENSE.md).
 
-It is an unofficial community integration and is not affiliated with or endorsed by Nibe, MEC Electronics, or any controller manufacturer.
+The NIBE icon is sourced from the [Home Assistant brands repository](https://github.com/home-assistant/brands/tree/master/core_integrations/nibe_heatpump) and is used only to identify compatible products. NIBE and KNV names and trademarks belong to their respective owners. This unofficial community integration is not affiliated with or endorsed by NIBE, KNV, or Home Assistant.

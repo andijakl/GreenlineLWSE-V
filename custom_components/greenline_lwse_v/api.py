@@ -33,6 +33,7 @@ class GreenlineLWSEClient:
 
     def __init__(
         self,
+        *,
         session: aiohttp.ClientSession,
         host: str,
         username: str,
@@ -92,6 +93,7 @@ class GreenlineLWSEClient:
             except GreenlineLWSEConnectionError as err:
                 if self._stopping:
                     return
+                await self._async_close_websocket()
                 self._on_connection_lost(err)
                 await asyncio.sleep(RECONNECT_DELAY)
 

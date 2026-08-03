@@ -142,7 +142,10 @@ def test_handle_payload_ignores_malformed_messages(raw: str) -> None:
 
 
 async def test_connection_failure_reconnects_after_backoff() -> None:
-    """Test a transport failure restores subscriptions after a delay."""
+    """Test a stale socket is replaced and subscriptions are restored."""
+    stale_websocket = MagicMock(closed=False)
+    stale_websocket.close = AsyncMock()
+    replacement_websocket = MagicMock(closed=False)
     on_connection_lost = MagicMock()
     client = GreenlineLWSEClient(
         session=MagicMock(),
@@ -152,21 +155,27 @@ async def test_connection_failure_reconnects_after_backoff() -> None:
         on_data=MagicMock(),
         on_connection_lost=on_connection_lost,
     )
+    client._ws = stale_websocket
     client._subscriptions.add("1.100.1.5")
-    client._async_connect_and_login = AsyncMock()
-    client._async_receive_forever = AsyncMock(
-        side_effect=GreenlineLWSEConnectionError("lost")
-    )
-    client._async_send = AsyncMock()
 
-    async def stop_after_backoff(delay: float) -> None:
-        assert delay == RECONNECT_DELAY
+    async def reconnect() -> str:
+        client._ws = replacement_websocket
+        return "120617430000044"
+
+    async def receive() -> None:
+        if client._ws is stale_websocket:
+            raise GreenlineLWSEConnectionError("lost")
         client._stopping = True
 
-    sleep = AsyncMock(side_effect=stop_after_backoff)
+    client._async_connect_and_login = AsyncMock(side_effect=reconnect)
+    client._async_receive_forever = AsyncMock(side_effect=receive)
+    client._async_send = AsyncMock()
+    sleep = AsyncMock()
+
     with patch("custom_components.greenline_lwse_v.api.asyncio.sleep", sleep):
         await client.async_run()
 
+    stale_websocket.close.assert_awaited_once()
     on_connection_lost.assert_called_once()
     sleep.assert_awaited_once_with(RECONNECT_DELAY)
     client._async_connect_and_login.assert_awaited_once()

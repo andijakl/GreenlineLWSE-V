@@ -58,7 +58,7 @@ async def test_form(
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Greenline LWSE-V"
+    assert result["title"] == "NIBE Greenline LWSE-V"
     assert result["data"] == USER_INPUT
     assert result["result"].unique_id == TEST_DEVICE_ID
     assert len(mock_setup_entry.mock_calls) == 1

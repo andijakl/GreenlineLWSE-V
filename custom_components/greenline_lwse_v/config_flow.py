@@ -78,7 +78,7 @@ class GreenlineLWSEConfigFlow(ConfigFlow, domain=DOMAIN):
                     await self.async_set_unique_id(device_id)
                     self._abort_if_unique_id_configured()
                     return self.async_create_entry(
-                        title="Greenline LWSE-V", data=user_input
+                        title="NIBE Greenline LWSE-V", data=user_input
                     )
 
         schema = self.add_suggested_values_to_schema(

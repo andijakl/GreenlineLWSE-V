@@ -8,7 +8,6 @@ __pycache__/
 .coverage
 coverage.xml
 htmlcov/
-requirements_dev.txt
 
 # Release builds
 releases/

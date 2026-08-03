@@ -2,8 +2,8 @@
 
 DOMAIN = "greenline_lwse_v"
 
-MANUFACTURER = "MEC Electronics"
-MODEL = "LWSE-V"
+MANUFACTURER = "NIBE"
+MODEL = "Greenline LWSE-V"
 
 PORT = 3118
 
