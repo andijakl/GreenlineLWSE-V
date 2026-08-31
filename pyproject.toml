@@ -13,7 +13,7 @@ quality = [
   "pre-commit==4.6.2",
 ]
 test = [
-  "pytest-homeassistant-custom-component==0.13.356",
+  "pytest-homeassistant-custom-component==0.13.358",
 ]
 
 [tool.uv]
