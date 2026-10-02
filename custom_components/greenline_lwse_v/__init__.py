@@ -67,7 +67,9 @@ def _migrate_legacy_identity(
             )
 
     device_registry = dr.async_get(hass)
-    device = device_registry.async_get_device(identifiers={(DOMAIN, old_device_id)})
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, old_device_id), entry.entry_id
+    )
     if device is not None:
         device_registry.async_update_device(
             device.id,

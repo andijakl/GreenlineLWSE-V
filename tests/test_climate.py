@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.greenline_lwse_v.const import (
     DAP_HK_COOLING_ENABLED,
@@ -30,8 +31,9 @@ pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 ENTITY_ID = "climate.greenline_lwse_v"
 
 
-@pytest.mark.usefixtures("mock_added_config_entry")
-async def test_state_and_stable_identifiers(hass: HomeAssistant) -> None:
+async def test_state_and_stable_identifiers(
+    hass: HomeAssistant, mock_added_config_entry: MockConfigEntry
+) -> None:
     """Test the climate state and MAC-backed identifiers."""
     state = hass.states.get(ENTITY_ID)
     assert state is not None
@@ -42,7 +44,9 @@ async def test_state_and_stable_identifiers(hass: HomeAssistant) -> None:
 
     entity_entry = er.async_get(hass).async_get(ENTITY_ID)
     assert entity_entry.unique_id == f"{TEST_DEVICE_ID}_hk1"
-    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, TEST_DEVICE_ID)})
+    assert dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, TEST_DEVICE_ID), mock_added_config_entry.entry_id
+    )
 
 
 @pytest.mark.usefixtures("mock_added_config_entry")

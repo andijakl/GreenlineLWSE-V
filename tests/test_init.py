@@ -9,8 +9,15 @@ from custom_components.greenline_lwse_v.api import (
     GreenlineLWSEAuthError,
     GreenlineLWSEConnectionError,
 )
+from custom_components.greenline_lwse_v.const import DOMAIN
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+
+from .conftest import TEST_DEVICE_ID
+
+LEGACY_MAC_DEVICE_ID = "00:11:22:aa:bb:cc"
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
@@ -80,3 +87,41 @@ async def test_runtime_auth_failure_starts_reauth(
 
     flows = hass.config_entries.flow.async_progress_by_handler("greenline_lwse_v")
     assert any(flow["context"]["source"] == "reauth" for flow in flows)
+
+
+@pytest.mark.usefixtures("mock_client")
+async def test_setup_entry_migrates_legacy_mac_identity(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test a MAC-based entry and its registry records move to the serial."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id=LEGACY_MAC_DEVICE_ID, data=mock_config_entry.data
+    )
+    entry.add_to_hass(hass)
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+    device = device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, LEGACY_MAC_DEVICE_ID)},
+    )
+    climate_entry = entity_registry.async_get_or_create(
+        Platform.CLIMATE,
+        DOMAIN,
+        f"{LEGACY_MAC_DEVICE_ID}_hk1",
+        config_entry=entry,
+        device_id=device.id,
+    )
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.unique_id == TEST_DEVICE_ID
+    assert (
+        entity_registry.async_get(climate_entry.entity_id).unique_id
+        == f"{TEST_DEVICE_ID}_hk1"
+    )
+    migrated_device = device_registry.async_get(device.id)
+    assert migrated_device.identifiers == {(DOMAIN, TEST_DEVICE_ID)}
+    assert migrated_device.serial_number == TEST_DEVICE_ID
+    assert entity_registry.async_get(climate_entry.entity_id).device_id == device.id
