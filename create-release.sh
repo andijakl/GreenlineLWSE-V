@@ -155,3 +155,32 @@ rm -f "$archive_path"
 printf 'Created %s\n' "$archive_path"
 printf 'Archive contents:\n'
 unzip -l "$archive_path"
+
+archive_rel_path="releases/${DOMAIN}-v${version}.zip"
+github_url="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
+if [[ "$github_url" =~ github\.com[:/]([^/]+)/([^/.]+?)(\.git)?$ ]]; then
+    repo_slug="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+else
+    repo_slug="andijakl/GreenlineLWSE-V"
+fi
+release_url="https://github.com/${repo_slug}/releases/new"
+
+cat <<EOF
+
+Release archive ready. Next steps to publish on GitHub:
+
+1. Create and push the release tag:
+   git tag -a ${version} -m "Release ${version}"
+   git push origin ${version}
+
+2. Create the GitHub release:
+   Using GitHub CLI (gh):
+     gh release create ${version} "${archive_rel_path}" --title "Release ${version}" --generate-notes
+
+   Or via the GitHub web interface:
+     Open: ${release_url}
+     - Tag: ${version} (or create new tag on publish)
+     - Release title: Release ${version}
+     - Attach archive: ${archive_rel_path}
+     - Click "Publish release"
+EOF
