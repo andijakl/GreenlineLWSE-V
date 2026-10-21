@@ -101,7 +101,7 @@ class GreenlineLWSEClient:
         """Open the WebSocket connection and wait for the login response."""
         url = f"ws://{self._host}:{PORT}"
         try:
-            self._ws = await self._session.ws_connect(url, heartbeat=30)
+            ws = self._ws = await self._session.ws_connect(url, heartbeat=30)
         except (aiohttp.ClientError, TimeoutError) as err:
             raise GreenlineLWSEConnectionError(str(err)) from err
 
@@ -126,7 +126,7 @@ class GreenlineLWSEClient:
             try:
                 async with asyncio.timeout(LOGIN_TIMEOUT):
                     while not pending_login.done():
-                        self._handle_ws_message(await self._async_receive())
+                        self._handle_ws_message(await self._async_receive(ws))
             except TimeoutError as err:
                 raise GreenlineLWSEConnectionError(
                     "Timed out waiting for login response"
@@ -169,12 +169,9 @@ class GreenlineLWSEClient:
             self._handle_ws_message(await self._async_receive(ws))
 
     async def _async_receive(
-        self, ws: aiohttp.ClientWebSocketResponse | None = None
+        self, ws: aiohttp.ClientWebSocketResponse
     ) -> aiohttp.WSMessage:
         """Receive a WebSocket message, translating transport errors."""
-        ws = ws or self._ws
-        if ws is None:
-            raise GreenlineLWSEConnectionError("Not connected")
         try:
             return await ws.receive()
         except (aiohttp.ClientError, ConnectionError) as err:
@@ -208,11 +205,10 @@ class GreenlineLWSEClient:
 
         command = message.get("command")
         if command == "login":
+            # The web app treats any error field, whatever its type, as a failed login.
             error = message.get("error")
             if self._pending_login is not None and not self._pending_login.done():
-                self._pending_login.set_result(
-                    error if isinstance(error, str) else None
-                )
+                self._pending_login.set_result(None if error is None else str(error))
         elif command == "HLVal" and isinstance(message.get("values"), list):
             values = {
                 value["path"]: value["result"]

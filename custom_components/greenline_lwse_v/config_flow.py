@@ -17,7 +17,7 @@ from .api import (
     GreenlineLWSEClient,
     GreenlineLWSEConnectionError,
 )
-from .const import DOMAIN, is_legacy_mac_device_id
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +28,15 @@ STEP_USER_DATA_SCHEMA = probatio.Schema(
         probatio.Required(CONF_PASSWORD): str,
     }
 )
+
+
+class _ValidationError(Exception):
+    """Raised with a form error key when connection details cannot be validated."""
+
+    def __init__(self, reason: str) -> None:
+        """Initialize the error."""
+        super().__init__(reason)
+        self.reason = reason
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> str:
@@ -58,28 +67,23 @@ class GreenlineLWSEConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle the initial and reauthentication forms."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            errors, device_id = await self._async_validate(user_input)
-            if not errors:
-                if device_id is None:
-                    raise RuntimeError("Validated controller has no serial")
-                if self.source == SOURCE_REAUTH:
-                    reauth_entry = self._get_reauth_entry()
-                    if (
-                        device_id != reauth_entry.unique_id
-                        and reauth_entry.unique_id is not None
-                        and not is_legacy_mac_device_id(reauth_entry.unique_id)
-                    ):
-                        errors["base"] = "wrong_device"
-                    else:
-                        return self.async_update_reload_and_abort(
-                            reauth_entry, data=user_input
-                        )
-                else:
+            try:
+                device_id = await self._async_validate(user_input)
+            except _ValidationError as err:
+                errors["base"] = err.reason
+            else:
+                if self.source != SOURCE_REAUTH:
                     await self.async_set_unique_id(device_id)
                     self._abort_if_unique_id_configured()
                     return self.async_create_entry(
                         title="NIBE Greenline LWSE-V", data=user_input
                     )
+                reauth_entry = self._get_reauth_entry()
+                if device_id == reauth_entry.unique_id:
+                    return self.async_update_reload_and_abort(
+                        reauth_entry, data=user_input
+                    )
+                errors["base"] = "wrong_device"
 
         schema = self.add_suggested_values_to_schema(
             STEP_USER_DATA_SCHEMA,
@@ -96,33 +100,27 @@ class GreenlineLWSEConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle reauthentication."""
         return await self.async_step_user()
 
-    async def _async_validate(
-        self, user_input: dict[str, Any]
-    ) -> tuple[dict[str, str], str | None]:
-        """Validate user input and return flow errors plus the device identifier."""
-        errors: dict[str, str] = {}
-        device_id: str | None = None
+    async def _async_validate(self, user_input: dict[str, Any]) -> str:
+        """Validate user input and return the controller serial."""
         try:
             user_input[CONF_HOST] = _normalize_host(user_input[CONF_HOST])
-        except ValueError:
-            errors["base"] = "cannot_connect"
-            return errors, device_id
+        except ValueError as err:
+            raise _ValidationError("cannot_connect") from err
 
         try:
-            device_id = await validate_input(self.hass, user_input)
-        except GreenlineLWSEAuthError:
-            errors["base"] = "invalid_auth"
+            return await validate_input(self.hass, user_input)
+        except GreenlineLWSEAuthError as err:
+            raise _ValidationError("invalid_auth") from err
         except GreenlineLWSEConnectionError as err:
             _LOGGER.warning(
                 "Could not connect to Greenline LWSE-V at %s: %s",
                 user_input[CONF_HOST],
                 err,
             )
-            errors["base"] = "cannot_connect"
-        except Exception:
+            raise _ValidationError("cannot_connect") from err
+        except Exception as err:
             _LOGGER.exception("Unexpected exception")
-            errors["base"] = "unknown"
-        return errors, device_id
+            raise _ValidationError("unknown") from err
 
 
 def _normalize_host(value: str) -> str:

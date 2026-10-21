@@ -19,6 +19,7 @@ DAP_HK_COOLING_ENABLED = f"1.100.{_HK_ID}.201"
 DAP_HK_COOLING_ACTIVE = f"1.100.{_HK_ID}.202"
 
 DAP_WW_TARGET_TEMPERATURE = f"1.101.{_WW_ID}.5"
+DAP_WW_TARGET_TEMPERATURE_REDUCED = f"1.101.{_WW_ID}.6"
 DAP_WW_CURRENT_TEMPERATURE = f"1.101.{_WW_ID}.20"
 
 SUBSCRIBED_DAPS = (
@@ -30,18 +31,12 @@ SUBSCRIBED_DAPS = (
     DAP_HK_COOLING_ENABLED,
     DAP_HK_COOLING_ACTIVE,
     DAP_WW_TARGET_TEMPERATURE,
+    DAP_WW_TARGET_TEMPERATURE_REDUCED,
     DAP_WW_CURRENT_TEMPERATURE,
 )
 
+# Setpoint limits enforced by the controller web interface.
 TEMPERATURE_MIN = 0
 TEMPERATURE_MAX = 40
-
-
-def is_legacy_mac_device_id(device_id: str) -> bool:
-    """Return whether an entry uses the legacy colon-separated MAC identifier."""
-    parts = device_id.split(":")
-    return len(parts) == 6 and all(
-        len(part) == 2
-        and all(character in "0123456789abcdef" for character in part.lower())
-        for part in parts
-    )
+WW_TEMPERATURE_MIN = 0
+WW_TEMPERATURE_MAX = 99

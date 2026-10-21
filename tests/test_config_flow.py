@@ -1,15 +1,10 @@
-"""Test the Greenline LWSE-V config flow."""
+"""Test the Greenline LWSE-V config flow against a fake controller."""
 
-from collections.abc import Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.greenline_lwse_v.api import (
-    GreenlineLWSEAuthError,
-    GreenlineLWSEConnectionError,
-)
 from custom_components.greenline_lwse_v.const import DOMAIN
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
@@ -17,8 +12,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from .conftest import TEST_DEVICE_ID, TEST_HOST, TEST_PASSWORD, TEST_USERNAME
+from .fake_controller import FakeController, wait_for
 
-pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
+pytestmark = pytest.mark.usefixtures("controller_session", "mock_setup_entry")
 
 USER_INPUT = {
     CONF_HOST: TEST_HOST,
@@ -27,33 +23,23 @@ USER_INPUT = {
 }
 
 
-@pytest.fixture
-def mock_validate_input() -> Generator[MagicMock]:
-    """Mock a successful config-flow connection attempt."""
-    with patch(
-        "custom_components.greenline_lwse_v.config_flow.GreenlineLWSEClient",
-        autospec=True,
-    ) as mock_client_cls:
-        client = mock_client_cls.return_value
-        client.async_connect = AsyncMock(return_value=TEST_DEVICE_ID)
-        client.async_disconnect = AsyncMock()
-        yield client
-
-
-async def test_form(
-    hass: HomeAssistant,
-    mock_setup_entry: AsyncMock,
-    mock_validate_input: MagicMock,
-) -> None:
-    """Test the form creates a serial-identified config entry."""
+async def _start_user_flow(hass: HomeAssistant) -> str:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {}
+    return result["flow_id"]
+
+
+async def test_form_creates_entry_from_web_interface_url(
+    hass: HomeAssistant, fake_controller: FakeController
+) -> None:
+    """Test a URL copied from the browser creates a serial-identified entry."""
+    flow_id = await _start_user_flow(hass)
 
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {**USER_INPUT, CONF_HOST: f"http://{TEST_HOST}/"}
+        flow_id, {**USER_INPUT, CONF_HOST: f" http://{TEST_HOST}/#!/home "}
     )
     await hass.async_block_till_done()
 
@@ -61,62 +47,75 @@ async def test_form(
     assert result["title"] == "NIBE Greenline LWSE-V"
     assert result["data"] == USER_INPUT
     assert result["result"].unique_id == TEST_DEVICE_ID
-    assert len(mock_setup_entry.mock_calls) == 1
+    assert fake_controller.login_count == 1
+    await wait_for(lambda: fake_controller.connection_count == 0)
 
 
 @pytest.mark.parametrize(
-    ("side_effect", "error"),
+    ("host", "error"),
     [
-        pytest.param(GreenlineLWSEAuthError("nope"), "invalid_auth", id="auth"),
-        pytest.param(
-            GreenlineLWSEConnectionError("nope"), "cannot_connect", id="connection"
-        ),
-        pytest.param(RuntimeError("boom"), "unknown", id="unexpected"),
+        pytest.param(TEST_HOST, "invalid_auth", id="wrong-password"),
+        pytest.param("ftp://greenline.test", "cannot_connect", id="unsupported-url"),
+        pytest.param("http://", "cannot_connect", id="missing-host"),
+        pytest.param("unknown-host.test", "cannot_connect", id="unknown-host"),
     ],
 )
-async def test_form_errors(
-    hass: HomeAssistant,
-    mock_setup_entry: AsyncMock,
-    mock_validate_input: MagicMock,
-    side_effect: Exception,
-    error: str,
+async def test_form_errors_then_success(
+    hass: HomeAssistant, fake_controller: FakeController, host: str, error: str
 ) -> None:
-    """Test validation errors and successful retry."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
+    """Test input mistakes show an error and the user can correct them."""
+    flow_id = await _start_user_flow(hass)
 
-    mock_validate_input.async_connect.side_effect = side_effect
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], USER_INPUT
+        flow_id, {**USER_INPUT, CONF_HOST: host, CONF_PASSWORD: "wrong-password"}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": error}
 
-    mock_validate_input.async_connect.side_effect = None
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], USER_INPUT
-    )
+    result = await hass.config_entries.flow.async_configure(flow_id, USER_INPUT)
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert len(mock_setup_entry.mock_calls) == 1
+    await wait_for(lambda: fake_controller.connection_count == 0)
 
 
-async def test_form_already_configured(
-    hass: HomeAssistant,
-    mock_setup_entry: AsyncMock,
-    mock_validate_input: MagicMock,
-    mock_config_entry: MockConfigEntry,
+async def test_form_controller_offline(
+    hass: HomeAssistant, fake_controller: FakeController
 ) -> None:
-    """Test the flow aborts for an existing controller serial."""
-    mock_config_entry.add_to_hass(hass)
+    """Test setting up while the controller is switched off."""
+    await fake_controller.stop()
+    flow_id = await _start_user_flow(hass)
 
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
+    result = await hass.config_entries.flow.async_configure(flow_id, USER_INPUT)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_form_unexpected_error(hass: HomeAssistant) -> None:
+    """Test an unexpected client failure is reported instead of crashing the flow."""
+    flow_id = await _start_user_flow(hass)
+
+    with patch(
+        "custom_components.greenline_lwse_v.config_flow.validate_input",
+        AsyncMock(side_effect=RuntimeError("boom")),
+    ):
+        result = await hass.config_entries.flow.async_configure(flow_id, USER_INPUT)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "unknown"}
+
+
+@pytest.mark.usefixtures("fake_controller")
+async def test_form_already_configured(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test the same controller cannot be added twice, even under another name."""
+    mock_config_entry.add_to_hass(hass)
+    flow_id = await _start_user_flow(hass)
+
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], USER_INPUT
+        flow_id, {**USER_INPUT, CONF_HOST: f"http://{TEST_HOST}"}
     )
 
     assert result["type"] is FlowResultType.ABORT
@@ -125,41 +124,38 @@ async def test_form_already_configured(
 
 async def test_reauth_flow(
     hass: HomeAssistant,
-    mock_setup_entry: AsyncMock,
-    mock_validate_input: MagicMock,
+    fake_controller: FakeController,
     mock_config_entry: MockConfigEntry,
+    mock_setup_entry: AsyncMock,
 ) -> None:
-    """Test the reauthentication flow updates credentials."""
+    """Test reauthentication after the controller password was changed."""
     mock_config_entry.add_to_hass(hass)
+    fake_controller.password = "new-password"
 
     result = await mock_config_entry.start_reauth_flow(hass)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
 
-    mock_validate_input.async_connect.side_effect = GreenlineLWSEAuthError("nope")
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {**USER_INPUT, CONF_PASSWORD: "new-password"},
+        result["flow_id"], USER_INPUT
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
 
-    mock_validate_input.async_connect.side_effect = None
-    mock_validate_input.async_connect.return_value = "different-controller"
+    fake_controller.serial = "999999999999999"
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {**USER_INPUT, CONF_PASSWORD: "new-password"},
+        result["flow_id"], {**USER_INPUT, CONF_PASSWORD: "new-password"}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "wrong_device"}
 
-    mock_validate_input.async_connect.return_value = TEST_DEVICE_ID
+    fake_controller.serial = TEST_DEVICE_ID
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {**USER_INPUT, CONF_PASSWORD: "new-password"},
+        result["flow_id"], {**USER_INPUT, CONF_PASSWORD: "new-password"}
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert mock_config_entry.data[CONF_PASSWORD] == "new-password"
+    assert mock_setup_entry.call_count == 1

@@ -10,8 +10,8 @@ A Home Assistant custom integration for NIBE Greenline LWSE-V heat-pump controll
 - Local push updates through a persistent WebSocket connection; no polling.
 - Automatic recovery after transport failures, with subscriptions restored after reconnecting.
 - A `climate` entity for HK1 current/target temperature and `off`, `heat`, `cool`, and `heat_cool` modes.
-- A `number` entity for the HK1 reduced (economy/setback) target temperature.
-- Sensors for WW1 current and target temperatures.
+- `number` entities for the HK1 reduced (economy/setback) room temperature and the WW1 target and reduced warm-water temperatures.
+- A sensor for the WW1 current temperature.
 - UI configuration, connection validation, and reauthentication after credential changes.
 - Stable device and entity identifiers based on the controller serial number.
 
@@ -39,12 +39,18 @@ In Home Assistant, go to **Settings → Devices & services → Add integration**
 
 ## Entities
 
-| Entity                        | Platform  | Description                                   |
-| ----------------------------- | --------- | --------------------------------------------- |
-| Heating circuit 1             | `climate` | Current/target room temperature and HVAC mode |
-| Reduced room temperature      | `number`  | HK1 reduced (economy/setback) target          |
-| Warm water temperature        | `sensor`  | WW1 current temperature                       |
-| Warm water target temperature | `sensor`  | WW1 target temperature                        |
+| Entity                         | Platform  | Description                                   |
+| ------------------------------ | --------- | --------------------------------------------- |
+| Heating circuit 1              | `climate` | Current/target room temperature and HVAC mode |
+| Reduced room temperature       | `number`  | HK1 reduced (economy/setback) target, 0–40 °C |
+| Warm water target temperature  | `number`  | WW1 normal target temperature, 0–99 °C        |
+| Warm water reduced temperature | `number`  | WW1 reduced target temperature, 0–99 °C       |
+| Warm water temperature         | `sensor`  | WW1 current temperature                       |
+
+The setpoints correspond to the "room temperature desired" and "room temperature reduced" settings of the controller web interface and take effect immediately; the web interface's ranges are used as limits.
+
+> [!NOTE]
+> Versions up to 0.4.0 exposed the warm-water target temperature as a read-only sensor (`sensor.…_warm_water_target_temperature`). It is now an adjustable `number` entity (`number.…_warm_water_target_temperature`); the old sensor is removed automatically, so update automations and dashboards that reference it.
 
 ## Development
 

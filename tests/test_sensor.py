@@ -2,18 +2,24 @@
 
 import pytest
 
+from custom_components.greenline_lwse_v.const import DAP_WW_CURRENT_TEMPERATURE
+from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 
-pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
+from .fake_controller import FakeController, wait_for
+
+ENTITY_ID = "sensor.greenline_lwse_v_warm_water_temperature"
 
 
-@pytest.mark.usefixtures("mock_added_config_entry")
-async def test_state(hass: HomeAssistant) -> None:
-    """Test warm-water sensors reflect pushed device data."""
-    state = hass.states.get("sensor.greenline_lwse_v_warm_water_temperature")
-    assert state is not None
-    assert state.state == "47.2"
+@pytest.mark.usefixtures("loaded_entry")
+async def test_state_follows_controller(
+    hass: HomeAssistant, fake_controller: FakeController
+) -> None:
+    """Test the warm-water temperature follows controller pushes."""
+    assert hass.states.get(ENTITY_ID).state == "47.2"
 
-    state = hass.states.get("sensor.greenline_lwse_v_warm_water_target_temperature")
-    assert state is not None
-    assert state.state == "48.0"
+    await fake_controller.push({DAP_WW_CURRENT_TEMPERATURE: "46.8"})
+    await wait_for(lambda: hass.states.get(ENTITY_ID).state == "46.8")
+
+    await fake_controller.push({DAP_WW_CURRENT_TEMPERATURE: "---"})
+    await wait_for(lambda: hass.states.get(ENTITY_ID).state == STATE_UNKNOWN)

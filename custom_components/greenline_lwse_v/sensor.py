@@ -13,7 +13,7 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DAP_WW_CURRENT_TEMPERATURE, DAP_WW_TARGET_TEMPERATURE
+from .const import DAP_WW_CURRENT_TEMPERATURE
 from .coordinator import GreenlineLWSEConfigEntry, GreenlineLWSECoordinator
 from .entity import GreenlineLWSEEntity, parse_temperature
 
@@ -35,14 +35,6 @@ SENSOR_DESCRIPTIONS: tuple[GreenlineLWSESensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         dap=DAP_WW_CURRENT_TEMPERATURE,
-    ),
-    GreenlineLWSESensorEntityDescription(
-        key="warm_water_target_temperature",
-        translation_key="warm_water_target_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        state_class=SensorStateClass.MEASUREMENT,
-        dap=DAP_WW_TARGET_TEMPERATURE,
     ),
 )
 

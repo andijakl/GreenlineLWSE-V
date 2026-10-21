@@ -29,12 +29,15 @@
     "number": {
       "reduced_temperature": {
         "name": "Reduced room temperature"
+      },
+      "warm_water_reduced_temperature": {
+        "name": "Warm water reduced temperature"
+      },
+      "warm_water_target_temperature": {
+        "name": "Warm water target temperature"
       }
     },
     "sensor": {
-      "warm_water_target_temperature": {
-        "name": "Warm water target temperature"
-      },
       "warm_water_temperature": {
         "name": "Warm water temperature"
       }
