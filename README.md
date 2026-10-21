@@ -67,11 +67,13 @@ To run strict type checks directly, use the uv-managed mypy version from `pyproj
 uv run --locked --group quality --group test mypy --config-file=mypy.ini custom_components/greenline_lwse_v
 ```
 
-Dependency versions are pinned for reproducibility. Dependabot updates uv and GitHub Actions dependencies, while pre-commit.ci updates hook revisions. To refresh all direct development dependencies and pre-commit hooks manually before validating, run:
+Dependency versions are pinned for reproducibility. To update everything to the latest versions that work with the current stable Home Assistant release and then run `./validate.sh`, use:
 
 ```bash
-./validate.sh --update
+./update-dependencies.sh
 ```
+
+The script selects the newest `pytest-homeassistant-custom-component` release that targets the current stable (not beta) Home Assistant version, updates the other pinned development tools, all transitive dependencies in `uv.lock`, pre-commit hook revisions, and GitHub Actions versions, and prints a summary of every change. Use `--check` to only list available updates without changing files, or `--skip-validation` to skip the final validation run. Dependabot and pre-commit.ci continue to propose individual updates between runs.
 
 To build a validated HACS-compatible archive for the version declared in the manifest:
 

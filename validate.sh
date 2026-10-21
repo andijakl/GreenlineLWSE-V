@@ -1,28 +1,27 @@
 #!/usr/bin/env bash
-# Update (optionally), format, lint, type-check, and test Greenline LWSE-V.
-# Usage: ./validate.sh [--update]
+# Format, lint, type-check, and test Greenline LWSE-V.
+# Usage: ./validate.sh
 
 set -euo pipefail
 
-readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_ROOT
 readonly MANIFEST_PATH="$REPO_ROOT/custom_components/greenline_lwse_v/manifest.json"
 readonly PROJECT_PATH="$REPO_ROOT/pyproject.toml"
 cd "$REPO_ROOT"
 
 usage() {
     cat <<'EOF'
-Usage: ./validate.sh [--update]
+Usage: ./validate.sh
 
-Without options, validate the reproducible environment in uv.lock.
-With --update, update exact direct dependency pins and pre-commit hooks first,
-then run the same complete validation.
+Validate the reproducible environment in uv.lock. To first update dependencies
+to the latest versions for the current stable Home Assistant release, run
+./update-dependencies.sh instead; it calls this script afterwards.
 EOF
 }
 
-update_dependencies=false
 case "${1:-}" in
     "") ;;
-    --update) update_dependencies=true ;;
     --help|-h)
         usage
         exit 0
@@ -47,15 +46,6 @@ fi
 if ! command -v uv >/dev/null 2>&1; then
     echo "uv is required. Install it from https://docs.astral.sh/uv/." >&2
     exit 1
-fi
-
-if [[ "$update_dependencies" == true ]]; then
-    printf 'Updating uv-managed development dependencies...\n'
-    uv add --group quality --bounds exact --upgrade pre-commit mypy
-    uv add --group test --bounds exact --upgrade pytest-homeassistant-custom-component
-
-    printf '\nUpdating pre-commit hook revisions...\n'
-    uv run --locked --group quality pre-commit autoupdate
 fi
 
 printf 'Checking the uv lockfile...\n'
