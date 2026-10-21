@@ -13,3 +13,4 @@ htmlcov/
 releases/
 release-temp/
 *.zip
+.env
