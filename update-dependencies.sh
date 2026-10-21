@@ -384,6 +384,7 @@ fi
 project_python="$(sed -n 's/^requires-python *= *"\(.*\)"/\1/p' "$PROJECT_PATH")"
 if [[ -n "$ha_python" && "$ha_python" != "$project_python" ]]; then
     warn "Home Assistant ${ha_version} requires Python ${ha_python}, pyproject.toml declares ${project_python}"
+    warn "Update requires-python, .python-version, mypy.ini and the pre-commit default_language_version together."
 else
     ok "Python requirement matches Home Assistant (${project_python})"
 fi
