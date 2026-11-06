@@ -23,7 +23,7 @@ from .const import (
     TEMPERATURE_MIN,
 )
 from .coordinator import GreenlineLWSEConfigEntry, GreenlineLWSECoordinator
-from .entity import GreenlineLWSEEntity, parse_temperature
+from .entity import GreenlineLWSEEntity, parse_number
 
 PARALLEL_UPDATES = 0
 
@@ -73,13 +73,13 @@ class GreenlineLWSEClimate(GreenlineLWSEEntity, ClimateEntity):
     @override
     def current_temperature(self) -> float | None:
         """Return the current room temperature."""
-        return parse_temperature(self.coordinator.data.get(DAP_HK_CURRENT_TEMPERATURE))
+        return parse_number(self.coordinator.data.get(DAP_HK_CURRENT_TEMPERATURE))
 
     @property
     @override
     def target_temperature(self) -> float | None:
         """Return the desired room temperature."""
-        return parse_temperature(self.coordinator.data.get(DAP_HK_TARGET_TEMPERATURE))
+        return parse_number(self.coordinator.data.get(DAP_HK_TARGET_TEMPERATURE))
 
     @property
     @override

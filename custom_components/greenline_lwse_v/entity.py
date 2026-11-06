@@ -11,15 +11,19 @@ from .const import DOMAIN, MANUFACTURER, MODEL
 from .coordinator import GreenlineLWSECoordinator
 
 
-def parse_temperature(value: str | None) -> float | None:
-    """Convert a raw device temperature to a finite float."""
+def parse_number(value: str | None) -> float | None:
+    """Convert a raw device value to a finite number; whole numbers stay integers."""
     if value is None or value == "---":
         return None
     try:
-        temperature = float(value)
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        number = float(value)
     except ValueError:
         return None
-    return temperature if math.isfinite(temperature) else None
+    return number if math.isfinite(number) else None
 
 
 class GreenlineLWSEEntity(CoordinatorEntity[GreenlineLWSECoordinator]):

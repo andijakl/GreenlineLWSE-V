@@ -11,7 +11,9 @@ A Home Assistant custom integration for NIBE Greenline LWSE-V heat-pump controll
 - Automatic recovery after transport failures, with subscriptions restored after reconnecting.
 - A `climate` entity for HK1 current/target temperature and `off`, `heat`, `cool`, and `heat_cool` modes.
 - `number` entities for the HK1 reduced (economy/setback) room temperature and the WW1 target and reduced warm-water temperatures.
-- A sensor for the WW1 current temperature.
+- Sensors for the heat pump operating state (e.g. heating, warm water, defrosting, restart delay) and heating mode.
+- Heat meter sensors: current heat output, flow rate, and produced heat energy in total and per heating, warm water, and cooling — ready for long-term statistics.
+- Sensors for the outdoor, flow, return, and warm-water temperatures, plus compressor starts and compressor/backup-heater operating hours.
 - UI configuration, connection validation, and reauthentication after credential changes.
 - Stable device and entity identifiers based on the controller serial number.
 
@@ -20,6 +22,7 @@ A Home Assistant custom integration for NIBE Greenline LWSE-V heat-pump controll
 - Only heating circuit 1 (HK1) and warm-water circuit 1 (WW1) are currently implemented. Additional circuits should be straightforward to add, but they are not used in the developer's home and therefore could not be tested.
 - The protocol client is controller-specific because no maintained public MControl2 client library is available.
 - Transport failures are retried after a fixed 30-second delay. Authentication failures require reauthentication and are not retried automatically.
+- The controller measures produced heat, not electrical consumption. Heat output and heat energy come from its heat meter; to track electricity use or calculate the COP, combine them with a separate electricity meter.
 
 ## Installation
 
@@ -39,15 +42,24 @@ In Home Assistant, go to **Settings → Devices & services → Add integration**
 
 ## Entities
 
-| Entity                         | Platform  | Description                                   |
-| ------------------------------ | --------- | --------------------------------------------- |
-| Heating circuit 1              | `climate` | Current/target room temperature and HVAC mode |
-| Reduced room temperature       | `number`  | HK1 reduced (economy/setback) target, 0–40 °C |
-| Warm water target temperature  | `number`  | WW1 normal target temperature, 0–99 °C        |
-| Warm water reduced temperature | `number`  | WW1 reduced target temperature, 0–99 °C       |
-| Warm water temperature         | `sensor`  | WW1 current temperature                       |
+| Entity                                     | Platform  | Description                                                            |
+| ------------------------------------------ | --------- | ---------------------------------------------------------------------- |
+| Heating circuit 1                          | `climate` | Current/target room temperature and HVAC mode                          |
+| Reduced room temperature                   | `number`  | HK1 reduced (economy/setback) target, 0–40 °C                          |
+| Warm water target temperature              | `number`  | WW1 normal target temperature, 0–99 °C                                 |
+| Warm water reduced temperature             | `number`  | WW1 reduced target temperature, 0–99 °C                                |
+| Warm water temperature                     | `sensor`  | WW1 current temperature                                                |
+| Operating state                            | `sensor`  | Heat pump state, e.g. heating, warm water 1, defrosting, restart delay |
+| Heating mode                               | `sensor`  | Automatic, normal, reduced, summer, or standby                         |
+| Heat output                                | `sensor`  | Current heat output (W) from the heat meter                            |
+| Heat energy                                | `sensor`  | Produced heat (kWh) in total                                           |
+| Heat energy heating / warm water / cooling | `sensor`  | Produced heat (kWh) per use                                            |
+| Outdoor / flow / return temperature        | `sensor`  | Heat pump temperatures                                                 |
+| Flow rate                                  | `sensor`  | Heat meter flow (L/min), diagnostic                                    |
+| Compressor starts                          | `sensor`  | Compressor start counter, diagnostic                                   |
+| Compressor / backup heater operating hours | `sensor`  | Operating hours, diagnostic                                            |
 
-The setpoints correspond to the "room temperature desired" and "room temperature reduced" settings of the controller web interface and take effect immediately; the web interface's ranges are used as limits.
+All values are readable with a regular (non-expert) user of the controller web interface. The setpoints correspond to the "room temperature desired" and "room temperature reduced" settings of the controller web interface and take effect immediately; the web interface's ranges are used as limits.
 
 > [!NOTE]
 > Versions up to 0.4.0 exposed the warm-water target temperature as a read-only sensor (`sensor.…_warm_water_target_temperature`). It is now an adjustable `number` entity (`number.…_warm_water_target_temperature`); the old sensor is removed automatically, so update automations and dashboards that reference it.

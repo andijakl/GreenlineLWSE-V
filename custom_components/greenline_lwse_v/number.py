@@ -23,7 +23,7 @@ from .const import (
     WW_TEMPERATURE_MIN,
 )
 from .coordinator import GreenlineLWSEConfigEntry, GreenlineLWSECoordinator
-from .entity import GreenlineLWSEEntity, parse_temperature
+from .entity import GreenlineLWSEEntity, parse_number
 
 PARALLEL_UPDATES = 0
 
@@ -95,7 +95,7 @@ class GreenlineLWSENumber(GreenlineLWSEEntity, NumberEntity):
     @override
     def native_value(self) -> float | None:
         """Return the configured setpoint."""
-        return parse_temperature(self.coordinator.data.get(self.entity_description.dap))
+        return parse_number(self.coordinator.data.get(self.entity_description.dap))
 
     @override
     async def async_set_native_value(self, value: float) -> None:

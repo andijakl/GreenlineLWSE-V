@@ -1,0 +1,124 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Gerät ist bereits konfiguriert",
+      "reauth_successful": "Die erneute Authentifizierung war erfolgreich"
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen",
+      "invalid_auth": "Ungültige Authentifizierung",
+      "unknown": "Unerwarteter Fehler",
+      "wrong_device": "Die Zugangsdaten gehören zu einer anderen Greenline LWSE-V Steuerung."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "host": "Host",
+          "password": "Passwort",
+          "username": "Benutzername"
+        },
+        "data_description": {
+          "host": "Die IP-Adresse oder der Hostname der Greenline LWSE-V, zum Beispiel 192.168.20.1.",
+          "password": "Das Passwort für die Weboberfläche des Geräts.",
+          "username": "Der Benutzername für die Weboberfläche des Geräts."
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "reduced_temperature": {
+        "name": "Reduzierte Raumtemperatur"
+      },
+      "warm_water_reduced_temperature": {
+        "name": "Reduzierte Warmwassertemperatur"
+      },
+      "warm_water_target_temperature": {
+        "name": "Warmwasser-Solltemperatur"
+      }
+    },
+    "sensor": {
+      "warm_water_temperature": {
+        "name": "Warmwassertemperatur"
+      },
+      "heat_pump_state": {
+        "name": "Betriebszustand",
+        "state": {
+          "manual_operation": "Handbetrieb",
+          "compressor_alarm": "Kompressor-Alarm",
+          "tariff_lockout": "Tarifabschaltung",
+          "compressor_substitution": "Kompressor-Substitution",
+          "restart_delay": "Wiedereinschaltverzögerung",
+          "defrosting": "Abtauung",
+          "heat_generator_pump_delay": "Einschaltverzögerung WE-Pumpe",
+          "source_pump_fan_delay": "Einschaltverzögerung Solepumpe/Ventilator",
+          "bivalence_lockout": "Bivalenzsperre",
+          "external_release_off": "Externe Freigabe aus",
+          "overtemperature": "Übertemperatur",
+          "stage_1_off": "Stufe 1 aus",
+          "external_release_on": "Externe Freigabe ein",
+          "frost_protection": "Frostschutz",
+          "active_cooling": "Aktive Kühlung",
+          "warm_water_1": "Warmwasser 1",
+          "warm_water_2": "Warmwasser 2",
+          "warm_water_1_and_2": "Warmwasser 1 + 2",
+          "heating": "Heizung",
+          "pool": "Pool",
+          "standby": "Standby",
+          "compressor_off": "Kompressor aus"
+        }
+      },
+      "heating_mode": {
+        "name": "Heizungsmodus",
+        "state": {
+          "standby": "Standby",
+          "summer": "Sommerbetrieb",
+          "reduced": "Absenkbetrieb",
+          "normal": "Normalbetrieb",
+          "automatic": "Automatikbetrieb"
+        }
+      },
+      "heat_output": {
+        "name": "Wärmeleistung"
+      },
+      "flow_rate": {
+        "name": "Durchfluss"
+      },
+      "heat_energy": {
+        "name": "Wärmemenge"
+      },
+      "heat_energy_heating": {
+        "name": "Wärmemenge Heizung"
+      },
+      "heat_energy_warm_water": {
+        "name": "Wärmemenge Warmwasser"
+      },
+      "heat_energy_cooling": {
+        "name": "Wärmemenge Kühlung"
+      },
+      "outdoor_temperature": {
+        "name": "Außentemperatur"
+      },
+      "flow_temperature": {
+        "name": "Vorlauftemperatur"
+      },
+      "return_temperature": {
+        "name": "Rücklauftemperatur"
+      },
+      "compressor_starts": {
+        "name": "Kompressorstarts"
+      },
+      "compressor_operating_hours": {
+        "name": "Betriebsstunden Kompressor"
+      },
+      "backup_heater_operating_hours": {
+        "name": "Betriebsstunden Zusatzheizung"
+      }
+    }
+  },
+  "exceptions": {
+    "set_value_failed": {
+      "message": "Der neue Wert konnte nicht an die Greenline LWSE-V gesendet werden."
+    }
+  }
+}

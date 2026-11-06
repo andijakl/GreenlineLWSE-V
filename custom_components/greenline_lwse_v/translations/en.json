@@ -40,6 +40,79 @@
     "sensor": {
       "warm_water_temperature": {
         "name": "Warm water temperature"
+      },
+      "heat_pump_state": {
+        "name": "Operating state",
+        "state": {
+          "manual_operation": "Manual operation",
+          "compressor_alarm": "Compressor alarm",
+          "tariff_lockout": "Utility lockout",
+          "compressor_substitution": "Compressor substitution",
+          "restart_delay": "Restart delay",
+          "defrosting": "Defrosting",
+          "heat_generator_pump_delay": "Heat generator pump start delay",
+          "source_pump_fan_delay": "Brine pump/fan start delay",
+          "bivalence_lockout": "Bivalence lockout",
+          "external_release_off": "External release off",
+          "overtemperature": "Overtemperature",
+          "stage_1_off": "Stage 1 off",
+          "external_release_on": "External release on",
+          "frost_protection": "Frost protection",
+          "active_cooling": "Active cooling",
+          "warm_water_1": "Warm water 1",
+          "warm_water_2": "Warm water 2",
+          "warm_water_1_and_2": "Warm water 1 + 2",
+          "heating": "Heating",
+          "pool": "Pool",
+          "standby": "Standby",
+          "compressor_off": "Compressor off"
+        }
+      },
+      "heating_mode": {
+        "name": "Heating mode",
+        "state": {
+          "standby": "Standby",
+          "summer": "Summer mode",
+          "reduced": "Reduced",
+          "normal": "Normal",
+          "automatic": "Automatic"
+        }
+      },
+      "heat_output": {
+        "name": "Heat output"
+      },
+      "flow_rate": {
+        "name": "Flow rate"
+      },
+      "heat_energy": {
+        "name": "Heat energy"
+      },
+      "heat_energy_heating": {
+        "name": "Heat energy heating"
+      },
+      "heat_energy_warm_water": {
+        "name": "Heat energy warm water"
+      },
+      "heat_energy_cooling": {
+        "name": "Heat energy cooling"
+      },
+      "outdoor_temperature": {
+        "name": "Outdoor temperature"
+      },
+      "flow_temperature": {
+        "name": "Flow temperature"
+      },
+      "return_temperature": {
+        "name": "Return temperature"
+      },
+      "compressor_starts": {
+        "name": "Compressor starts"
+      },
+      "compressor_operating_hours": {
+        "name": "Compressor operating hours"
+      },
+      "backup_heater_operating_hours": {
+        "name": "Backup heater operating hours"
       }
     }
   },
