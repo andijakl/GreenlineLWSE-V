@@ -80,44 +80,49 @@ HEATING_MODES = {
 }
 
 
-def _number(dap: str) -> Callable[[Mapping[str, str]], StateType]:
-    return lambda data: parse_number(data.get(dap))
+type ValueFn = Callable[[tuple[str | None, ...]], StateType]
 
 
-def _sum(daps: tuple[str, ...]) -> Callable[[Mapping[str, str]], StateType]:
-    def value(data: Mapping[str, str]) -> StateType:
-        numbers = [parse_number(data.get(dap)) for dap in daps]
-        return None if None in numbers else sum(n for n in numbers if n is not None)
-
-    return value
+def _number(values: tuple[str | None, ...]) -> StateType:
+    return parse_number(values[0])
 
 
-def _option(
-    dap: str, options: Mapping[str, str]
-) -> Callable[[Mapping[str, str]], StateType]:
-    return lambda data: options.get(data.get(dap, ""))
+def _sum(values: tuple[str | None, ...]) -> StateType:
+    numbers = [parse_number(value) for value in values]
+    return None if None in numbers else sum(n for n in numbers if n is not None)
+
+
+def _option(options: Mapping[str, str]) -> ValueFn:
+    return lambda values: options.get(values[0] or "")
 
 
 @dataclass(frozen=True, kw_only=True)
 class GreenlineLWSESensorEntityDescription(SensorEntityDescription):
-    """Describe a Greenline sensor entity."""
+    """Describe a Greenline sensor entity.
 
-    value_fn: Callable[[Mapping[str, str]], StateType]
+    The value function receives the raw values of the data points, in order.
+    """
+
+    daps: tuple[str, ...]
+    value_fn: ValueFn = _number
 
 
-def _temperature(key: str, dap: str) -> GreenlineLWSESensorEntityDescription:
+def _temperature(
+    key: str, dap: str, *, enabled: bool = True
+) -> GreenlineLWSESensorEntityDescription:
     return GreenlineLWSESensorEntityDescription(
         key=key,
         translation_key=key,
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_number(dap),
+        entity_registry_enabled_default=enabled,
+        daps=(dap,),
     )
 
 
 def _heat_energy(
-    key: str, value_fn: Callable[[Mapping[str, str]], StateType]
+    key: str, daps: tuple[str, ...], value_fn: ValueFn = _number
 ) -> GreenlineLWSESensorEntityDescription:
     return GreenlineLWSESensorEntityDescription(
         key=key,
@@ -125,6 +130,8 @@ def _heat_energy(
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_registry_enabled_default=False,
+        daps=daps,
         value_fn=value_fn,
     )
 
@@ -137,10 +144,13 @@ def _operating_hours(key: str, dap: str) -> GreenlineLWSESensorEntityDescription
         native_unit_of_measurement=UnitOfTime.HOURS,
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=_number(dap),
+        entity_registry_enabled_default=False,
+        daps=(dap,),
     )
 
 
+# Entities that are rarely needed are disabled by default; the controller only
+# receives subscriptions for enabled entities.
 SENSOR_DESCRIPTIONS: tuple[GreenlineLWSESensorEntityDescription, ...] = (
     _temperature("warm_water_temperature", DAP_WW_CURRENT_TEMPERATURE),
     GreenlineLWSESensorEntityDescription(
@@ -148,14 +158,16 @@ SENSOR_DESCRIPTIONS: tuple[GreenlineLWSESensorEntityDescription, ...] = (
         translation_key="heat_pump_state",
         device_class=SensorDeviceClass.ENUM,
         options=list(HEAT_PUMP_STATES.values()),
-        value_fn=_option(DAP_HEAT_PUMP_STATE, HEAT_PUMP_STATES),
+        daps=(DAP_HEAT_PUMP_STATE,),
+        value_fn=_option(HEAT_PUMP_STATES),
     ),
     GreenlineLWSESensorEntityDescription(
         key="heating_mode",
         translation_key="heating_mode",
         device_class=SensorDeviceClass.ENUM,
         options=list(HEATING_MODES.values()),
-        value_fn=_option(DAP_HEATING_MODE, HEATING_MODES),
+        daps=(DAP_HEATING_MODE,),
+        value_fn=_option(HEATING_MODES),
     ),
     GreenlineLWSESensorEntityDescription(
         key="heat_output",
@@ -163,7 +175,7 @@ SENSOR_DESCRIPTIONS: tuple[GreenlineLWSESensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_number(DAP_HEAT_OUTPUT),
+        daps=(DAP_HEAT_OUTPUT,),
     ),
     GreenlineLWSESensorEntityDescription(
         key="flow_rate",
@@ -172,21 +184,23 @@ SENSOR_DESCRIPTIONS: tuple[GreenlineLWSESensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfVolumeFlowRate.LITERS_PER_MINUTE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=_number(DAP_FLOW_RATE),
+        entity_registry_enabled_default=False,
+        daps=(DAP_FLOW_RATE,),
     ),
-    _heat_energy("heat_energy", _number(DAP_HEAT_ENERGY_TOTAL)),
-    _heat_energy("heat_energy_heating", _sum(DAP_HEAT_ENERGY_HEATING)),
-    _heat_energy("heat_energy_warm_water", _number(DAP_HEAT_ENERGY_WARM_WATER)),
-    _heat_energy("heat_energy_cooling", _number(DAP_HEAT_ENERGY_COOLING)),
-    _temperature("outdoor_temperature", DAP_OUTDOOR_TEMPERATURE),
-    _temperature("flow_temperature", DAP_FLOW_TEMPERATURE),
-    _temperature("return_temperature", DAP_RETURN_TEMPERATURE),
+    _heat_energy("heat_energy", (DAP_HEAT_ENERGY_TOTAL,)),
+    _heat_energy("heat_energy_heating", DAP_HEAT_ENERGY_HEATING, _sum),
+    _heat_energy("heat_energy_warm_water", (DAP_HEAT_ENERGY_WARM_WATER,)),
+    _heat_energy("heat_energy_cooling", (DAP_HEAT_ENERGY_COOLING,)),
+    _temperature("outdoor_temperature", DAP_OUTDOOR_TEMPERATURE, enabled=False),
+    _temperature("flow_temperature", DAP_FLOW_TEMPERATURE, enabled=False),
+    _temperature("return_temperature", DAP_RETURN_TEMPERATURE, enabled=False),
     GreenlineLWSESensorEntityDescription(
         key="compressor_starts",
         translation_key="compressor_starts",
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=_number(DAP_COMPRESSOR_STARTS),
+        entity_registry_enabled_default=False,
+        daps=(DAP_COMPRESSOR_STARTS,),
     ),
     _operating_hours("compressor_operating_hours", DAP_COMPRESSOR_HOURS),
     _operating_hours("backup_heater_operating_hours", DAP_BACKUP_HEATER_HOURS),
@@ -219,9 +233,11 @@ class GreenlineLWSESensor(GreenlineLWSEEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator, f"{coordinator.device_id}_{description.key}")
         self.entity_description = description
+        self._daps = description.daps
 
     @property
     @override
     def native_value(self) -> StateType:
         """Return the current value reported by the device."""
-        return self.entity_description.value_fn(self.coordinator.data)
+        data = self.coordinator.data
+        return self.entity_description.value_fn(tuple(map(data.get, self._daps)))

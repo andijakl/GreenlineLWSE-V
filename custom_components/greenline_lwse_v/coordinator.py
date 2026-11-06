@@ -1,5 +1,6 @@
 """Data update coordinator for the Greenline LWSE-V integration."""
 
+from collections.abc import Iterable
 import logging
 from typing import override
 
@@ -15,7 +16,7 @@ from .api import (
     GreenlineLWSEClient,
     GreenlineLWSEConnectionError,
 )
-from .const import DOMAIN, SUBSCRIBED_DAPS
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +52,15 @@ class GreenlineLWSECoordinator(DataUpdateCoordinator[dict[str, str]]):
             on_connection_lost=self._handle_connection_lost,
         )
 
+    async def async_subscribe(self, daps: Iterable[str]) -> None:
+        """Subscribe to data points needed by an entity."""
+        try:
+            for dap in daps:
+                await self.client.async_subscribe(dap)
+        except GreenlineLWSEConnectionError:
+            # Subscriptions are kept and sent again after reconnecting.
+            _LOGGER.debug("Connection lost while subscribing; retrying on reconnect")
+
     def _handle_data(self, values: dict[str, str]) -> None:
         """Handle values pushed by the device."""
         self.async_set_updated_data({**self.data, **values})
@@ -63,7 +73,7 @@ class GreenlineLWSECoordinator(DataUpdateCoordinator[dict[str, str]]):
 
     @override
     async def _async_update_data(self) -> dict[str, str]:
-        """Connect to the device and subscribe to required data points."""
+        """Connect to the device; entities subscribe to the data points they show."""
         try:
             serial = await self.client.async_connect()
         except GreenlineLWSEAuthError as err:
@@ -76,13 +86,6 @@ class GreenlineLWSECoordinator(DataUpdateCoordinator[dict[str, str]]):
             raise UpdateFailed(
                 "Connected controller does not match the configured device"
             )
-
-        try:
-            for dap in SUBSCRIBED_DAPS:
-                await self.client.async_subscribe(dap)
-        except GreenlineLWSEConnectionError as err:
-            await self.client.async_disconnect()
-            raise UpdateFailed(str(err)) from err
 
         self.config_entry.async_create_background_task(
             self.hass, self.client.async_run(), f"{DOMAIN}-connection"

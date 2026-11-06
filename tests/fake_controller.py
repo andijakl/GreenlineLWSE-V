@@ -38,6 +38,9 @@ class FakeController:
         self.serial_status = 200
         self.login_error: Any = "Login failed"
         self.answer_login = True
+        # Data points whose current value is not sent on subscription, as observed on
+        # a real controller for minutes at a time.
+        self.withheld: set[str] = set()
         self.received: list[dict[str, Any]] = []
         self.login_count = 0
         self.port = 0
@@ -128,7 +131,10 @@ class FakeController:
                 elif command["command"] == "addHotlink":
                     subscriptions.add(parameter["dap"])
                     await ws.send_str(self._frame({**command, "retval": 0}))
-                    if parameter["dap"] in self.values:
+                    if (
+                        parameter["dap"] in self.values
+                        and parameter["dap"] not in self.withheld
+                    ):
                         await ws.send_str(self._hotlink_values([parameter["dap"]]))
                 elif command["command"] == "setVMValue":
                     await self.push({parameter["dap"]: parameter["value"]})

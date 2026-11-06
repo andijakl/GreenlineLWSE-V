@@ -14,6 +14,10 @@ _LOGGER = logging.getLogger(__name__)
 
 LOGIN_TIMEOUT = 10
 RECONNECT_DELAY = 30
+# The controller occasionally acknowledges a subscription without sending the
+# current value. Subscriptions without a value are repeated with growing delays.
+VALUE_RETRY_DELAY = 15
+VALUE_RETRY_MAX_DELAY = 300
 
 
 class GreenlineLWSEError(Exception):
@@ -50,23 +54,38 @@ class GreenlineLWSEClient:
         self._on_connection_lost = on_connection_lost
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._subscriptions: set[str] = set()
+        self._received: set[str] = set()
         self._pending_login: asyncio.Future[str | None] | None = None
         self._serial: str | None = None
         self._stopping = False
 
     async def async_connect(self) -> str:
-        """Open the connection, log in, and return the controller serial."""
-        return await self._async_connect_and_login()
+        """Open the connection, log in, subscribe, and return the controller serial."""
+        serial = await self._async_connect_and_login()
+        for dap in sorted(self._subscriptions):
+            await self._async_add_hotlink(dap)
+        return serial
 
     async def async_disconnect(self) -> None:
         """Close the connection."""
         self._stopping = True
         await self._async_close_websocket()
 
+    @property
+    def subscriptions(self) -> frozenset[str]:
+        """Return the subscribed data points."""
+        return frozenset(self._subscriptions)
+
     async def async_subscribe(self, dap: str) -> None:
-        """Subscribe to data-point updates."""
+        """Subscribe to data-point updates, now if connected and after reconnecting.
+
+        The controller cannot cancel subscriptions; they end with the connection.
+        """
+        if dap in self._subscriptions:
+            return
         self._subscriptions.add(dap)
-        await self._async_send({"command": "addHotlink", "parameter": {"dap": dap}})
+        if self._ws is not None and not self._ws.closed:
+            await self._async_add_hotlink(dap)
 
     async def async_set_value(self, dap: str, value: float | str) -> None:
         """Set a data-point value on the device."""
@@ -80,12 +99,13 @@ class GreenlineLWSEClient:
         while not self._stopping:
             try:
                 if self._ws is None or self._ws.closed:
-                    await self._async_connect_and_login()
-                    for dap in self._subscriptions:
-                        await self._async_send(
-                            {"command": "addHotlink", "parameter": {"dap": dap}}
-                        )
-                await self._async_receive_forever()
+                    await self.async_connect()
+                retry = asyncio.create_task(self._async_request_missing_values())
+                try:
+                    await self._async_receive_forever()
+                finally:
+                    retry.cancel()
+                    await asyncio.wait([retry])
             except GreenlineLWSEAuthError as err:
                 if not self._stopping:
                     self._on_connection_lost(err)
@@ -96,6 +116,22 @@ class GreenlineLWSEClient:
                 await self._async_close_websocket()
                 self._on_connection_lost(err)
                 await asyncio.sleep(RECONNECT_DELAY)
+
+    async def _async_request_missing_values(self) -> None:
+        """Repeat subscriptions until the controller has sent a value for each."""
+        delay: float = VALUE_RETRY_DELAY
+        while True:
+            await asyncio.sleep(delay)
+            if not (missing := self._subscriptions - self._received):
+                delay = VALUE_RETRY_DELAY
+                continue
+            _LOGGER.debug("Requesting values not received yet: %s", sorted(missing))
+            try:
+                for dap in sorted(missing):
+                    await self._async_add_hotlink(dap)
+            except GreenlineLWSEConnectionError:
+                return
+            delay = min(delay * 2, VALUE_RETRY_MAX_DELAY)
 
     async def _async_connect_and_login(self) -> str:
         """Open the WebSocket connection and wait for the login response."""
@@ -140,6 +176,7 @@ class GreenlineLWSEClient:
             raise
         else:
             self._serial = serial
+            self._received.clear()
             return serial
         finally:
             self._pending_login = None
@@ -218,7 +255,12 @@ class GreenlineLWSEClient:
                 and isinstance(value.get("result"), str)
             }
             if values:
+                self._received.update(values)
                 self._on_data(values)
+
+    async def _async_add_hotlink(self, dap: str) -> None:
+        """Ask the controller for the value and future changes of a data point."""
+        await self._async_send({"command": "addHotlink", "parameter": {"dap": dap}})
 
     async def _async_send(self, payload: dict[str, Any]) -> None:
         """Send a JSON payload to the device."""

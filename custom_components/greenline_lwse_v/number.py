@@ -90,6 +90,7 @@ class GreenlineLWSENumber(GreenlineLWSEEntity, NumberEntity):
         """Initialize the number entity."""
         super().__init__(coordinator, f"{coordinator.device_id}_{description.key}")
         self.entity_description = description
+        self._daps = (description.dap,)
 
     @property
     @override

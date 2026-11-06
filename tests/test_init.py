@@ -1,18 +1,43 @@
 """Test Greenline LWSE-V setup, unload, and connection recovery."""
 
+from datetime import timedelta
+
 import aiohttp
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.greenline_lwse_v.const import (
+    DAP_FLOW_RATE,
+    DAP_HEAT_ENERGY_HEATING,
+    DAP_HEAT_ENERGY_TOTAL,
+    DAP_HEAT_OUTPUT,
+    DAP_HEAT_PUMP_STATE,
+    DAP_HEATING_MODE,
+    DAP_HK_COOLING_ACTIVE,
+    DAP_HK_COOLING_ENABLED,
+    DAP_HK_CURRENT_TEMPERATURE,
+    DAP_HK_HEATING_ACTIVE,
+    DAP_HK_HEATING_ENABLED,
+    DAP_HK_TARGET_TEMPERATURE,
+    DAP_HK_TARGET_TEMPERATURE_REDUCED,
+    DAP_OUTDOOR_TEMPERATURE,
     DAP_WW_CURRENT_TEMPERATURE,
+    DAP_WW_TARGET_TEMPERATURE,
+    DAP_WW_TARGET_TEMPERATURE_REDUCED,
     DOMAIN,
-    SUBSCRIBED_DAPS,
 )
-from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE, Platform
+from homeassistant.config_entries import (
+    RELOAD_AFTER_UPDATE_DELAY,
+    SOURCE_REAUTH,
+    ConfigEntryState,
+)
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from .conftest import TEST_DEVICE_ID
 from .fake_controller import FakeController, wait_for
@@ -104,9 +129,38 @@ async def test_setup_rejects_a_different_controller(
     await wait_for(lambda: fake_controller.connection_count == 0)
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("controller_session")
+async def test_values_withheld_on_startup_are_filled_in(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    fake_controller: FakeController,
+) -> None:
+    """Test values the controller does not send on subscription are not lost.
+
+    Values such as the heating mode rarely change, so without asking again they
+    would stay unknown until the next change, possibly for days.
+    """
+    heating_mode = "sensor.greenline_lwse_v_heating_mode"
+    warm_water_reduced = "number.greenline_lwse_v_warm_water_reduced_temperature"
+    fake_controller.withheld = {DAP_HEATING_MODE, DAP_WW_TARGET_TEMPERATURE_REDUCED}
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await wait_for(lambda: hass.states.get(WARM_WATER).state == "47.2")
+    assert hass.states.get(heating_mode).state == STATE_UNKNOWN
+    assert hass.states.get(warm_water_reduced).state == STATE_UNKNOWN
+
+    fake_controller.withheld.clear()
+
+    await wait_for(lambda: hass.states.get(heating_mode).state == "automatic")
+    assert hass.states.get(warm_water_reduced).state == "35.0"
+
+
 async def test_entities_unavailable_while_controller_is_off(
-    hass: HomeAssistant, fake_controller: FakeController
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    fake_controller: FakeController,
 ) -> None:
     """Test a controller power cycle marks entities unavailable, then recovers."""
     await fake_controller.stop()
@@ -118,8 +172,9 @@ async def test_entities_unavailable_while_controller_is_off(
 
     await wait_for(lambda: hass.states.get(WARM_WATER).state == "45.0")
     assert hass.states.get(CLIMATE).state == "heat"
-    resubscribed = fake_controller.commands("addHotlink")[len(SUBSCRIBED_DAPS) :]
-    assert sorted(cmd["dap"] for cmd in resubscribed) == sorted(SUBSCRIBED_DAPS)
+    subscriptions = loaded_entry.runtime_data.client.subscriptions
+    resubscribed = fake_controller.commands("addHotlink")[len(subscriptions) :]
+    assert sorted(cmd["dap"] for cmd in resubscribed) == sorted(subscriptions)
 
 
 @pytest.mark.usefixtures("loaded_entry")
@@ -158,3 +213,76 @@ async def test_setup_removes_replaced_sensor(
     assert entity_registry.async_get_entity_id(
         Platform.NUMBER, DOMAIN, f"{TEST_DEVICE_ID}_warm_water_target_temperature"
     )
+
+
+@pytest.mark.usefixtures("loaded_entry")
+async def test_only_enabled_entities_are_subscribed(
+    hass: HomeAssistant, fake_controller: FakeController
+) -> None:
+    """Test the controller only receives subscriptions for enabled entities."""
+    assert {cmd["dap"] for cmd in fake_controller.commands("addHotlink")} == {
+        DAP_HK_HEATING_ENABLED,
+        DAP_HK_HEATING_ACTIVE,
+        DAP_HK_TARGET_TEMPERATURE,
+        DAP_HK_CURRENT_TEMPERATURE,
+        DAP_HK_COOLING_ENABLED,
+        DAP_HK_COOLING_ACTIVE,
+        DAP_HK_TARGET_TEMPERATURE_REDUCED,
+        DAP_WW_TARGET_TEMPERATURE,
+        DAP_WW_TARGET_TEMPERATURE_REDUCED,
+        DAP_WW_CURRENT_TEMPERATURE,
+        DAP_HEAT_PUMP_STATE,
+        DAP_HEATING_MODE,
+        DAP_HEAT_OUTPUT,
+    }
+    registry = er.async_get(hass)
+    for name in (
+        "outdoor_temperature",
+        "flow_temperature",
+        "return_temperature",
+        "heat_energy",
+        "heat_energy_heating",
+        "heat_energy_warm_water",
+        "heat_energy_cooling",
+        "flow_rate",
+        "compressor_starts",
+        "compressor_operating_hours",
+        "backup_heater_operating_hours",
+    ):
+        entry = registry.async_get(f"sensor.greenline_lwse_v_{name}")
+        assert entry is not None, name
+        assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+        assert hass.states.get(entry.entity_id) is None
+
+
+async def test_enabling_entities_subscribes_after_reload(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    fake_controller: FakeController,
+) -> None:
+    """Test enabling entities subscribes their data points on the automatic reload."""
+    registry = er.async_get(hass)
+    for name in ("outdoor_temperature", "heat_energy_heating"):
+        registry.async_update_entity(
+            f"sensor.greenline_lwse_v_{name}", disabled_by=None
+        )
+    assert DAP_OUTDOOR_TEMPERATURE not in loaded_entry.runtime_data.client.subscriptions
+
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+
+    await wait_for(
+        lambda: (
+            (state := hass.states.get("sensor.greenline_lwse_v_outdoor_temperature"))
+            is not None
+            and state.state == "7.3"
+        )
+    )
+    assert (
+        hass.states.get("sensor.greenline_lwse_v_heat_energy_heating").state == "78065"
+    )
+    subscriptions = loaded_entry.runtime_data.client.subscriptions
+    assert {DAP_OUTDOOR_TEMPERATURE, *DAP_HEAT_ENERGY_HEATING} <= subscriptions
+    assert not {DAP_HEAT_ENERGY_TOTAL, DAP_FLOW_RATE} & subscriptions

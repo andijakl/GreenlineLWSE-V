@@ -18,6 +18,7 @@ from .fake_controller import CONTROLLER_HOST, FakeController, wait_for
 
 TARGET = "1.100.1.5"
 WARM_WATER = "1.101.1.20"
+REDUCED = "1.100.1.6"
 
 
 class Recorder:
@@ -272,3 +273,79 @@ async def test_write_without_connection_raises(client: GreenlineLWSEClient) -> N
     """Test writing before connecting fails with a client error."""
     with pytest.raises(GreenlineLWSEConnectionError, match="Not connected"):
         await client.async_set_value(TARGET, 21.5)
+
+
+def _hotlink_requests(controller: FakeController, dap: str) -> int:
+    return sum(1 for cmd in controller.commands("addHotlink") if cmd["dap"] == dap)
+
+
+async def test_withheld_values_are_requested_again(
+    client: GreenlineLWSEClient, fake_controller: FakeController, recorder: Recorder
+) -> None:
+    """Test values the controller does not send on subscription are requested again."""
+    fake_controller.withheld = {TARGET}
+    await client.async_connect()
+    await client.async_subscribe(TARGET)
+    await client.async_subscribe(WARM_WATER)
+    task = asyncio.create_task(client.async_run())
+
+    await wait_for(lambda: _hotlink_requests(fake_controller, TARGET) >= 3)
+    assert TARGET not in recorder.values
+    assert _hotlink_requests(fake_controller, WARM_WATER) == 1
+
+    fake_controller.withheld.clear()
+    await wait_for(lambda: TARGET in recorder.values)
+    requests = _hotlink_requests(fake_controller, TARGET)
+    await asyncio.sleep(0.5)  # longer than the shortened maximum retry delay
+    assert _hotlink_requests(fake_controller, TARGET) == requests
+
+    await client.async_disconnect()
+    await asyncio.wait_for(task, 5)
+
+
+@pytest.mark.usefixtures("running_client")
+async def test_withheld_values_after_reconnect_are_requested_again(
+    fake_controller: FakeController, recorder: Recorder
+) -> None:
+    """Test values received before a reconnect are requested again if withheld."""
+    fake_controller.withheld = {TARGET}
+    recorder.values.clear()
+
+    await fake_controller.drop_connections()
+    await wait_for(lambda: WARM_WATER in recorder.values)
+    assert TARGET not in recorder.values
+
+    fake_controller.withheld.clear()
+    await wait_for(lambda: TARGET in recorder.values)
+
+
+async def test_withheld_values_of_later_subscriptions_are_requested_again(
+    client: GreenlineLWSEClient,
+    running_client: asyncio.Task[None],
+    fake_controller: FakeController,
+    recorder: Recorder,
+) -> None:
+    """Test retries also cover data points subscribed after all values arrived."""
+    await asyncio.sleep(0.3)  # the retry loop has found nothing missing by now
+    fake_controller.withheld = {REDUCED}
+
+    await client.async_subscribe(REDUCED)
+
+    await wait_for(lambda: _hotlink_requests(fake_controller, REDUCED) >= 2)
+    fake_controller.withheld.clear()
+    await wait_for(lambda: REDUCED in recorder.values)
+
+
+async def test_subscriptions_while_disconnected_are_sent_on_connect(
+    client: GreenlineLWSEClient, fake_controller: FakeController
+) -> None:
+    """Test subscriptions made while disconnected are sent once, on connecting."""
+    await client.async_subscribe(TARGET)
+    await client.async_subscribe(TARGET)
+
+    assert not fake_controller.received
+    await client.async_connect()
+
+    await wait_for(lambda: fake_controller.commands("addHotlink"))
+    assert fake_controller.commands("addHotlink") == [{"dap": TARGET}]
+    await client.async_disconnect()

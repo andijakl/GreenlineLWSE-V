@@ -64,6 +64,14 @@ class GreenlineLWSEClimate(GreenlineLWSEEntity, ClimateEntity):
     _attr_min_temp = TEMPERATURE_MIN
     _attr_max_temp = TEMPERATURE_MAX
     _attr_target_temperature_step = 0.5
+    _daps = (
+        DAP_HK_HEATING_ENABLED,
+        DAP_HK_HEATING_ACTIVE,
+        DAP_HK_TARGET_TEMPERATURE,
+        DAP_HK_CURRENT_TEMPERATURE,
+        DAP_HK_COOLING_ENABLED,
+        DAP_HK_COOLING_ACTIVE,
+    )
 
     def __init__(self, coordinator: GreenlineLWSECoordinator) -> None:
         """Initialize the climate entity."""

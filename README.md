@@ -52,12 +52,14 @@ In Home Assistant, go to **Settings → Devices & services → Add integration**
 | Operating state                            | `sensor`  | Heat pump state, e.g. heating, warm water 1, defrosting, restart delay |
 | Heating mode                               | `sensor`  | Automatic, normal, reduced, summer, or standby                         |
 | Heat output                                | `sensor`  | Current heat output (W) from the heat meter                            |
-| Heat energy                                | `sensor`  | Produced heat (kWh) in total                                           |
-| Heat energy heating / warm water / cooling | `sensor`  | Produced heat (kWh) per use                                            |
-| Outdoor / flow / return temperature        | `sensor`  | Heat pump temperatures                                                 |
-| Flow rate                                  | `sensor`  | Heat meter flow (L/min), diagnostic                                    |
-| Compressor starts                          | `sensor`  | Compressor start counter, diagnostic                                   |
-| Compressor / backup heater operating hours | `sensor`  | Operating hours, diagnostic                                            |
+| Heat energy                                | `sensor`  | Produced heat (kWh) in total, disabled by default                      |
+| Heat energy heating / warm water / cooling | `sensor`  | Produced heat (kWh) per use, disabled by default                       |
+| Outdoor / flow / return temperature        | `sensor`  | Heat pump temperatures, disabled by default                            |
+| Flow rate                                  | `sensor`  | Heat meter flow (L/min), diagnostic, disabled by default               |
+| Compressor starts                          | `sensor`  | Compressor start counter, diagnostic, disabled by default              |
+| Compressor / backup heater operating hours | `sensor`  | Operating hours, diagnostic, disabled by default                       |
+
+Entities marked as disabled by default can be enabled on the device page in Home Assistant; Home Assistant reloads the integration about 30 seconds later. The integration only subscribes to the controller values of enabled entities, which keeps the load on the controller low.
 
 All values are readable with a regular (non-expert) user of the controller web interface. The setpoints correspond to the "room temperature desired" and "room temperature reduced" settings of the controller web interface and take effect immediately; the web interface's ranges are used as limits.
 

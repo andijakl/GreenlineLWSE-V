@@ -61,7 +61,7 @@ def _state(hass: HomeAssistant, name: str) -> str:
         ),
     ],
 )
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_measurements(
     hass: HomeAssistant,
     name: str,
@@ -77,7 +77,7 @@ async def test_measurements(
     assert entity_state.attributes[ATTR_STATE_CLASS] == state_class
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_counters_are_diagnostic(hass: HomeAssistant) -> None:
     """Test service counters do not clutter the default dashboard."""
     registry = er.async_get(hass)
@@ -93,7 +93,7 @@ async def test_counters_are_diagnostic(hass: HomeAssistant) -> None:
     assert registry.async_get(f"{PREFIX}heat_output").entity_category is None
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_operating_state_follows_controller(
     hass: HomeAssistant, fake_controller: FakeController
 ) -> None:
@@ -112,7 +112,7 @@ async def test_operating_state_follows_controller(
     await wait_for(lambda: hass.states.get(STATE).state == "restart_delay")
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_unknown_controller_state(
     hass: HomeAssistant, fake_controller: FakeController
 ) -> None:
@@ -122,7 +122,7 @@ async def test_unknown_controller_state(
     await wait_for(lambda: hass.states.get(STATE).state == STATE_UNKNOWN)
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_heating_mode(
     hass: HomeAssistant, fake_controller: FakeController
 ) -> None:
@@ -134,7 +134,7 @@ async def test_heating_mode(
     await wait_for(lambda: _state(hass, "heating_mode") == "summer")
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_heating_energy_sums_temperature_bands(
     hass: HomeAssistant, fake_controller: FakeController
 ) -> None:
@@ -146,7 +146,7 @@ async def test_heating_energy_sums_temperature_bands(
     await wait_for(lambda: _state(hass, "heat_energy_heating") == STATE_UNKNOWN)
 
 
-@pytest.mark.usefixtures("loaded_entry")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "loaded_entry")
 async def test_temperatures_follow_controller(
     hass: HomeAssistant, fake_controller: FakeController
 ) -> None:

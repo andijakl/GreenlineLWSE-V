@@ -1,7 +1,7 @@
 """Common fixtures for Greenline tests."""
 
-from collections.abc import AsyncGenerator
-from unittest.mock import AsyncMock, patch
+from collections.abc import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import aiohttp
 import pytest
@@ -33,7 +33,6 @@ from custom_components.greenline_lwse_v.const import (
     DAP_WW_TARGET_TEMPERATURE,
     DAP_WW_TARGET_TEMPERATURE_REDUCED,
     DOMAIN,
-    SUBSCRIBED_DAPS,
 )
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
@@ -111,6 +110,17 @@ async def mock_setup_entry(hass: HomeAssistant) -> AsyncGenerator[AsyncMock]:
 
 
 @pytest.fixture
+def entity_registry_enabled_by_default() -> Generator[None]:
+    """Create entities that are disabled by default as enabled."""
+    with patch(
+        "homeassistant.helpers.entity.Entity.entity_registry_enabled_default",
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        yield
+
+
+@pytest.fixture
 def mock_config_entry() -> MockConfigEntry:
     """Return a Greenline mock config entry."""
     return MockConfigEntry(
@@ -144,7 +154,8 @@ async def controller_session(
 ) -> AsyncGenerator[aiohttp.ClientSession]:
     """Route the integration's HTTP and WebSocket traffic to the fake controller.
 
-    Reconnect and login delays are shortened so recovery scenarios run quickly.
+    Reconnect, login, and value retry delays are shortened so recovery scenarios
+    run quickly.
     """
     session = aiohttp.ClientSession(
         connector=aiohttp.TCPConnector(resolver=FakeControllerResolver(fake_controller))
@@ -160,6 +171,8 @@ async def controller_session(
         ),
         patch("custom_components.greenline_lwse_v.api.RECONNECT_DELAY", 0.05),
         patch("custom_components.greenline_lwse_v.api.LOGIN_TIMEOUT", 1),
+        patch("custom_components.greenline_lwse_v.api.VALUE_RETRY_DELAY", 0.05),
+        patch("custom_components.greenline_lwse_v.api.VALUE_RETRY_MAX_DELAY", 0.2),
     ):
         yield session
         for entry in hass.config_entries.async_entries(DOMAIN):
@@ -194,6 +207,8 @@ async def loaded_entry(
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
     coordinator = mock_config_entry.runtime_data
-    await wait_for(lambda: all(dap in coordinator.data for dap in SUBSCRIBED_DAPS))
+    subscriptions = coordinator.client.subscriptions
+    assert subscriptions
+    await wait_for(lambda: subscriptions <= coordinator.data.keys())
     await hass.async_block_till_done()
     return mock_config_entry
